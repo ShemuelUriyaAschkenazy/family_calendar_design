@@ -68,6 +68,23 @@ const AVAILABLE_FONTS = [
   },
 ];
 
+const AVAILABLE_DESIGNS = [
+  {
+    id: "design_1",
+    name: "עיצוב 1 (3 צבעים)",
+    imagePath: "/designs/design_1.jpeg",
+    colors: ["#ebcdbb", "#b9dfd3", "#e8b6c7", "#FFFFFF"], // שומרים 4 צבעים במערך, אך משתמשים ב-3
+    useFourth: false,
+  },
+  {
+    id: "design_2",
+    name: "עיצוב 2 (4 צבעים)",
+    imagePath: "/designs/design_2.jpeg",
+    colors: ["#bfafa5", "#f1dd99", "#f8bd8d", "#e8b6c7"],
+    useFourth: true,
+  },
+];
+
 function hebrewToNumber(str: string): number {
   const cleanStr = str
     .replace(/[\u201D\u201C\u2018\u2019`”]/g, '"')
@@ -131,6 +148,7 @@ export default function CalendarBuilder() {
   const [selectedFont, setSelectedFont] = useState<string>(
     "system-ui, sans-serif",
   );
+  const [selectedDesign, setSelectedDesign] = useState<string>("");
 
   const [showModal, setShowModal] = useState(false);
   const [tableDataString, setTableDataString] = useState("");
@@ -168,13 +186,14 @@ export default function CalendarBuilder() {
         .replace(/[\u2018\u2019’]/g, "'")
         .trim();
 
+      // 1. נקה סימנים מוזרים ונקה רווחים
+      date = date.trim();
+
+      // 2. במקום תווים נסתרים - נחליף לגרש ומירכאות תקניים של המקלדת העברית שמסתדרים עם כל הפונטים
       if (type === "hebrew") {
-        if (date.length === 2 && date.endsWith("'")) {
-          date = `${date.charAt(0)}\u200F'\u200F`;
-        } else if (date.includes('"')) {
-          const parts = date.split('"');
-          date = `${parts[0]}\u200F"\u200F${parts[1]}`;
-        }
+        date = date
+          .replace(/'/g, "׳") // החלפת גרש רגיל בגרש עברי תקני
+          .replace(/"/g, "״"); // החלפת מירכאות רגילות במירכאות עבריות תקניות
       }
 
       sortedCalendar[month].push({
@@ -236,6 +255,40 @@ export default function CalendarBuilder() {
     });
 
     setProcessedCalendar(sortedCalendar);
+  };
+
+  const handleDesignChange = (designId: string) => {
+    setSelectedDesign(designId);
+    if (!designId) return;
+
+    const design = AVAILABLE_DESIGNS.find((d) => d.id === designId);
+    if (!design) return;
+
+    // 1. שמירת מערך הצבעים הישן לצורך החלפה חלקה בלוח הקיים
+    const oldColors = [...birthdayColors];
+    const newColors = design.colors;
+
+    // 2. עדכון ה-States של הצבעים ומצב הצבע הרביעי
+    setBirthdayColors(newColors);
+    setUseFourthColor(design.useFourth);
+
+    // 3. עדכון הלוח הקיים בצבעים החדשים (לפי אינדקסים) בלי להגריל מחדש
+    const updatedCalendar = { ...processedCalendar };
+    Object.keys(updatedCalendar).forEach((month) => {
+      updatedCalendar[month] = updatedCalendar[month].map((event) => {
+        if (event.type === "birthday") {
+          const colorIdx = oldColors.indexOf(event.color);
+          // אם מצאנו את האינדקס של הצבע הישן, נחליף אותו בחדש לפי אותו מיקום
+          if (colorIdx !== -1) {
+            return { ...event, color: newColors[colorIdx] };
+          }
+          // הגנה למקרה שהצבע הרביעי לא היה קיים מקודם
+          return { ...event, color: newColors[0] };
+        }
+        return event;
+      });
+    });
+    setProcessedCalendar(updatedCalendar);
   };
 
   const handleFetchData = async () => {
@@ -447,11 +500,50 @@ export default function CalendarBuilder() {
         </button>
       </div>
 
+      {/* מקטע בחירת עיצוב ותצוגה מקדימה של הבאנר */}
+      <div className="bg-white p-6 rounded-xl border border-slate-200 mb-6 mx-4">
+        <div className="max-w-md mb-4">
+          <label className="block text-sm font-semibold mb-2 text-slate-700">
+            בחר עיצוב באנר (ישנה את צבעי ברירת המחדל):
+          </label>
+          <select
+            className="w-full p-2.5 border border-slate-300 rounded-lg bg-white"
+            value={selectedDesign}
+            onChange={(e) => handleDesignChange(e.target.value)}
+          >
+            <option value="">-- ללא עיצוב / התאמה אישית --</option>
+            {AVAILABLE_DESIGNS.map((design) => (
+              <option key={design.id} value={design.id}>
+                {design.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* הצגת הבאנר הנבחר כתצוגה מקדימה מעל שורות הלוח */}
+        {selectedDesign && (
+          <div className="mt-4 border border-slate-300 rounded-xl overflow-hidden shadow-sm max-w-4xl mx-auto">
+            <div className="bg-slate-100 text-xs font-bold text-slate-500 p-1.5 text-center border-b border-slate-200">
+              תצוגה מקדימה של הבאנר העליון המתוכנן
+            </div>
+            <img
+              src={
+                AVAILABLE_DESIGNS.find((d) => d.id === selectedDesign)
+                  ?.imagePath
+              }
+              alt="Design Preview"
+              className="w-full h-40 object-cover"
+            />
+          </div>
+        )}
+      </div>
+
       {rawData.length > 0 && (
-        <div className="bg-white p-6 rounded-xl border border-indigo-100 shadow-sm mb-8 grid grid-cols-1 md:grid-cols-2 gap-6 items-center mx-4">
-          <div className="flex flex-wrap gap-6 items-end">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
+        <div className="bg-white p-6 rounded-xl border border-indigo-100 shadow-sm mb-8 flex flex-col md:flex-row gap-6 items-center justify-between mx-4">
+          <div className="flex flex-wrap gap-6 items-center w-full md:w-auto">
+            {/* 1. מקטע צבעי ימי הולדת */}
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-3">
                 <label className="block text-xs font-bold text-slate-500">
                   צבעי ימי הולדת:
                 </label>
@@ -476,7 +568,7 @@ export default function CalendarBuilder() {
                         onChange={(e) =>
                           handleBirthdayColorChange(idx, e.target.value)
                         }
-                        className="w-10 h-10 rounded cursor-pointer border border-slate-300"
+                        className="w-10 h-10 rounded cursor-pointer border border-slate-300 shadow-sm"
                       />
                       <span className="text-[10px] text-slate-400">
                         צבע {idx + 1}
@@ -486,31 +578,47 @@ export default function CalendarBuilder() {
                 })}
               </div>
             </div>
-            <div className="border-r pr-6 border-slate-200">
-              <label className="block text-xs font-bold text-slate-500 mb-2">
+
+            {/* קו מפריד אנכי עדין */}
+            <div className="hidden sm:block h-12 w-px bg-slate-200 self-end mb-4" />
+
+            {/* 2. מקטע צבע ימי נישואין */}
+            <div className="flex flex-col gap-2">
+              <label className="block text-xs font-bold text-slate-500">
                 צבע ימי נישואין:
               </label>
-              <input
-                type="color"
-                value={anniversaryColor}
-                onChange={(e) => handleAnniversaryColorChange(e.target.value)}
-                className="w-10 h-10 rounded cursor-pointer border border-slate-300"
-              />
+              <div className="flex flex-col items-center gap-1">
+                <input
+                  type="color"
+                  value={anniversaryColor}
+                  onChange={(e) => handleAnniversaryColorChange(e.target.value)}
+                  className="w-10 h-10 rounded cursor-pointer border border-slate-300 shadow-sm"
+                />
+                <span className="text-[10px] text-slate-400">לב 💖</span>
+              </div>
             </div>
-            <button
-              onClick={handleRegenerateColors}
-              className="bg-indigo-50 text-indigo-700 font-bold py-2 px-4 rounded-lg hover:bg-indigo-100 border border-indigo-200 transition text-sm h-10 flex items-center justify-center gap-1"
-            >
-              🎲 הגרל צבעים מחדש
-            </button>
+
+            {/* קו מפריד אנכי עדין */}
+            <div className="hidden sm:block h-12 w-px bg-slate-200 self-end mb-4" />
+
+            {/* 3. כפתור הגרלה מחדש */}
+            <div className="flex flex-col justify-end h-full self-center pt-4">
+              <button
+                onClick={handleRegenerateColors}
+                className="bg-indigo-50 text-indigo-700 font-bold py-2 px-4 rounded-lg hover:bg-indigo-100 border border-indigo-200 transition text-sm h-10 flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                🎲 הגרל צבעים מחדש
+              </button>
+            </div>
           </div>
 
-          <div className="md:mr-auto w-full md:w-64">
-            <label className="block text-sm font-semibold mb-2 text-slate-700">
+          {/* 4. מקטע בחירת הפונט (מיושר לשמאל ב-Desktop) */}
+          <div className="w-full md:w-64 flex flex-col gap-2">
+            <label className="block text-sm font-semibold text-slate-700">
               פונט הלוח:
             </label>
             <select
-              className="w-full p-2.5 border border-slate-300 rounded-lg bg-white font-sans"
+              className="w-full p-2.5 border border-slate-300 rounded-lg bg-white font-sans text-sm shadow-sm"
               value={selectedFont}
               onChange={(e) => setSelectedFont(e.target.value)}
             >
@@ -592,7 +700,10 @@ export default function CalendarBuilder() {
                               <span className="text-[11px] font-bold text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis max-w-full px-0.5 leading-tight">
                                 {circle.name}
                               </span>
-                              <span className="text-xs font-extrabold text-slate-900 mt-0.5">
+                              <span
+                                className="text-xs font-extrabold text-slate-900 mt-0.5"
+                                style={{ direction: "rtl" }}
+                              >
                                 {circle.date}
                               </span>
                             </div>
