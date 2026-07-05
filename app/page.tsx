@@ -60,6 +60,25 @@ const AVAILABLE_FONTS = [
   },
 ];
 
+function hebrewToNumber(str: string): number {
+  const cleanStr = str.replace(/["']/g, "").trim();
+  const gimatriaMap: Record<string, number> = {
+    'א': 1, 'ב': 2, 'ג': 3, 'ד': 4, 'ה': 5, 'ו': 6, 'ז': 7, 'ח': 8, 'ט': 9,
+    'י': 10, 'כ': 20, 'ל': 30, 'מ': 40, 'נ': 50, 'ס': 60, 'ע': 70, 'פ': 80, 'צ': 90,
+    'ק': 100, 'ר': 200, 'ש': 300, 'ת': 400
+  };
+  
+  if (cleanStr === "טו") return 15;
+  if (cleanStr === "טז") return 16;
+  
+  let sum = 0;
+  for (let i = 0; i < cleanStr.length; i++) {
+    const char = cleanStr[i];
+    if (gimatriaMap[char]) sum += gimatriaMap[char];
+  }
+  return sum > 0 ? sum : 99;
+}
+
 export default function CalendarBuilder() {
   const [sheetUrl, setSheetUrl] = useState("");
   const [loading, setLoading] = useState(false);
@@ -81,6 +100,9 @@ export default function CalendarBuilder() {
     "system-ui, sans-serif",
   );
 
+  const [showModal, setShowModal] = useState(false);
+  const [tableDataString, setTableDataString] = useState("");
+
   const processData = (
     dataToProcess: RawEvent[],
     type: "gregorian" | "hebrew",
@@ -92,6 +114,7 @@ export default function CalendarBuilder() {
 
     monthsList.forEach((m) => (sortedCalendar[m] = []));
 
+    // 1. מיון ואיסוף ראשוני לחודשים
     dataToProcess.forEach((row, rowIndex) => {
       const name = row["שם / שמות"];
       const date =
@@ -103,30 +126,59 @@ export default function CalendarBuilder() {
 
       if (!name || !date || !month || !sortedCalendar[month]) return;
 
-      let processedName = name;
-      let chosenColor = currentAnniversaryColor;
-
-      if (!isAnniversary) {
-        const currentMonthCircles = sortedCalendar[month];
-        const previousColor =
-          currentMonthCircles.length > 0
-            ? currentMonthCircles[currentMonthCircles.length - 1].color
-            : null;
-
-        const allowedColors = currentColors.filter((c) => c !== previousColor);
-        const finalOptions =
-          allowedColors.length > 0 ? allowedColors : currentColors;
-        chosenColor =
-          finalOptions[Math.floor(Math.random() * finalOptions.length)];
-      }
-
       sortedCalendar[month].push({
         id: `${month}-${rowIndex}`,
-        name: processedName,
+        name: name,
         date: date,
         type: isAnniversary ? "anniversary" : "birthday",
-        color: chosenColor,
+        color: "", 
         requiresCheck: name.length > 10,
+      });
+    });
+
+    // 2. מיון פנימי של כל חודש לפי ימים
+    monthsList.forEach((month) => {
+      sortedCalendar[month].sort((a, b) => {
+        const numA = type === "gregorian" ? parseInt(a.date, 10) : hebrewToNumber(a.date);
+        const numB = type === "gregorian" ? parseInt(b.date, 10) : hebrewToNumber(b.date);
+        return numA - numB;
+      });
+    });
+
+    // ✨ 3. אלגוריתם צבעים משודרג: מניעת שכנים בתוך העמודה ומניעת שכנים בעמודות סמוכות
+    monthsList.forEach((month, monthIdx) => {
+      const currentMonthEvents = sortedCalendar[month];
+
+      currentMonthEvents.forEach((event, idx) => {
+        if (event.type === "anniversary") {
+          event.color = currentAnniversaryColor;
+          return;
+        }
+
+        // א. בדיקת שכן קודם באותו חודש (באותה עמודה)
+        const sameMonthPrevColor = idx > 0 ? currentMonthEvents[idx - 1].color : null;
+
+        // ב. בדיקת שכן בעמודה הסמוכה משמאל (החודש הקודם)
+        let neighborMonthPrevColor: string | null = null;
+        if (monthIdx > 0) {
+          const prevMonthName = monthsList[monthIdx - 1];
+          const prevMonthEvents = sortedCalendar[prevMonthName];
+          
+          // אם יש אירועים בחודש הקודם, ניקח את הצבע של האירוע שנמצא באותו מיקום אינדקס (או האחרון שבהם)
+          if (prevMonthEvents && prevMonthEvents.length > 0) {
+            const targetIdx = Math.min(idx, prevMonthEvents.length - 1);
+            neighborMonthPrevColor = prevMonthEvents[targetIdx].color;
+          }
+        }
+
+        // סינון הצבעים האסורים (גם מהחודש הנוכחי וגם מהחודש השכן)
+        const allowedColors = currentColors.filter(
+          (c) => c !== sameMonthPrevColor && c !== neighborMonthPrevColor
+        );
+
+        // הגרלה מתוך הצבעים המותרים בלבד, ואם כולם חסומים - נחזור לברירת המחדל
+        const finalOptions = allowedColors.length > 0 ? allowedColors : currentColors;
+        event.color = finalOptions[Math.floor(Math.random() * finalOptions.length)];
       });
     });
 
@@ -194,47 +246,24 @@ export default function CalendarBuilder() {
     setProcessedCalendar(updated);
   };
 
-  // ✨ פונקציית הייצוא המעודכנת שמייצרת קובץ CSV חינמי למחשב
-  const handleExportToCanva = () => {
-    try {
-      // 1. הגדרת כותרות ה-CSV (בדיוק המפתחות שקנבה צריכה)
-      const headers = ["person_name", "event_date", "card_bg"];
-      const rows: string[][] = [];
-
-      // 2. איסוף כל האירועים מכל החודשים למבנה של שורות
-      Object.keys(processedCalendar).forEach((month) => {
-        processedCalendar[month].forEach((event) => {
-          const hexColor = event.color.replace("#", "");
-          // יצירת קישור לתמונה חלקה בצבע הנבחר
-          const bgUrl = `https://placehold.co/100x100/${hexColor}/${hexColor}.png`;
-          
-          // הוספת השורה (עטיפה במרכאות כדי למנוע בעיות של פסיקים ורווחים)
-          rows.push([
-            `"${event.name.replace(/"/g, '""')}"`,
-            `"${event.date}"`,
-            `"${bgUrl}"`
-          ]);
-        });
+  const handlePrepareDataForCanva = () => {
+    const rows: string[] = [];
+    
+    Object.keys(processedCalendar).forEach((month) => {
+      processedCalendar[month].forEach((event) => {
+        rows.push(`${event.name}\t${event.date}\t${event.color}`);
       });
+    });
 
-      if (rows.length === 0) return alert("אין נתונים לייצוא");
+    if (rows.length === 0) return alert("אין נתונים לייצוא");
 
-      // 3. בניית תוכן הקובץ עם תמיכה מלאה בעברית (\uFEFF)
-      const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
-      
-      // 4. יצירת קישור הורדה אוטומטי בדפדפן
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", `events_calendar_${calendarType}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+    setTableDataString(rows.join("\n"));
+    setShowModal(true);
+  };
 
-    } catch (err) {
-      alert("שגיאה ביצירת קובץ ה-CSV");
-    }
+  const handleCopyToClipboard = () => {
+    navigator.clipboard.writeText(tableDataString);
+    alert("הנתונים הועתקו! כעת עבור לקנבה ובצע הדבקה");
   };
 
   const activeMonths =
@@ -355,10 +384,10 @@ export default function CalendarBuilder() {
               תצוגה מקדימה של הלוח:
             </h2>
             <button
-              onClick={handleExportToCanva}
+              onClick={handlePrepareDataForCanva}
               className="bg-emerald-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-emerald-700 shadow transition text-lg"
             >
-              הורד קובץ CSV לקנבה ⬇️
+              הכן נתונים להעתקה לקנבה ✨
             </button>
           </div>
 
@@ -380,16 +409,7 @@ export default function CalendarBuilder() {
                         handleSingleCircleColorChange(month, circle.id)
                       }
                       style={{ backgroundColor: circle.color }}
-                      className={`w-24 h-24 rounded-full flex flex-col justify-center items-center text-center p-2 cursor-pointer shadow border transition-all hover:scale-105 select-none ${
-                        circle.requiresCheck
-                          ? "border-red-500 border-4 animate-pulse"
-                          : "border-slate-300"
-                      }`}
-                      title={
-                        circle.requiresCheck
-                          ? "שם ארוך! יתכווץ משמעותית בקנבה"
-                          : "לחץ לשינוי צבע מהיר"
-                      }
+                      className={`w-24 h-24 rounded-full flex flex-col justify-center items-center text-center p-2 cursor-pointer shadow border transition-all hover:scale-105 select-none border-slate-300`}
                     >
                       <span className="text-xs font-bold text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis max-w-full px-1 leading-tight">
                         {circle.name}
@@ -407,6 +427,31 @@ export default function CalendarBuilder() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white p-6 rounded-2xl max-w-lg w-full shadow-2xl border border-slate-100">
+            <h3 className="text-xl font-bold mb-3 text-slate-800">העתקת הנתונים לקנבה</h3>
+            <p className="text-sm text-slate-600 mb-4 leading-relaxed">
+              לחץ על הכפתור מטה כדי להעתיק את רשימת השמות, התאריכים והצבעים. לאחר מכן נעבור לקנבה ונזין אותם ידנית ברגע.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={handleCopyToClipboard}
+                className="bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-indigo-700 transition"
+              >
+                📋 העתק נתונים
+              </button>
+              <button
+                onClick={() => setShowModal(false)}
+                className="bg-slate-200 text-slate-700 font-semibold py-2 px-4 rounded-lg hover:bg-slate-300 transition"
+              >
+                סגור
+              </button>
+            </div>
           </div>
         </div>
       )}
