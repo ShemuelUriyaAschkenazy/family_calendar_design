@@ -90,14 +90,12 @@ export default function CalendarBuilder() {
     Record<string, ProcessedCircle[]>
   >({});
 
-  // רשימת 4 צבעים התחלתית
   const [birthdayColors, setBirthdayColors] = useState<string[]>([
     "#FFFFFF",
     "#ADD8E6",
     "#FFD700",
     "#98FB98", 
   ]); 
-  // ✨ מצב המציין האם הצבע הרביעי פעיל כרגע או לא
   const [useFourthColor, setUseFourthColor] = useState<boolean>(false);
 
   const [anniversaryColor, setAnniversaryColor] = useState<string>("#FFC0CB"); 
@@ -108,12 +106,14 @@ export default function CalendarBuilder() {
   const [showModal, setShowModal] = useState(false);
   const [tableDataString, setTableDataString] = useState("");
 
+  const [circleSize, setCircleSize] = useState<number>(96);
+
   const processData = (
     dataToProcess: RawEvent[],
     type: "gregorian" | "hebrew",
     currentColors: string[],
     currentAnniversaryColor: string,
-    enableFourth: boolean // ✨ הוספת הפרמטר לבדיקת אופציונליות הצבע הרביעי
+    enableFourth: boolean
   ) => {
     const monthsList = type === "gregorian" ? GREGORIAN_MONTHS : HEBREW_MONTHS;
     const sortedCalendar: Record<string, ProcessedCircle[]> = {};
@@ -151,7 +151,6 @@ export default function CalendarBuilder() {
       });
     });
 
-    // ✨ סינון מאגר הצבעים הזמין: אם enableFourth הוא false, נשתמש רק ב-3 הצבעים הראשונים במערך
     const activeBirthdayColors = enableFourth ? currentColors : currentColors.slice(0, 3);
 
     // 3. אלגוריתם צבעים משודרג
@@ -164,10 +163,8 @@ export default function CalendarBuilder() {
           return;
         }
 
-        // א. בדיקת שכן קודם באותו חודש
         const sameMonthPrevColor = idx > 0 ? currentMonthEvents[idx - 1].color : null;
 
-        // ב. בדיקת שכן בעמודה הסמוכה משמאל באותו אינדקס
         let neighborMonthPrevColor: string | null = null;
         if (monthIdx > 0) {
           const prevMonthName = monthsList[monthIdx - 1];
@@ -179,7 +176,6 @@ export default function CalendarBuilder() {
           }
         }
 
-        // סינון הצבעים האסורים מתוך המאגר האקטיבי שנבחר
         const allowedColors = activeBirthdayColors.filter(
           (c) => c !== sameMonthPrevColor && c !== neighborMonthPrevColor
         );
@@ -216,7 +212,7 @@ export default function CalendarBuilder() {
           calendarType,
           birthdayColors,
           anniversaryColor,
-          useFourthColor // שליחת המצב הנוכחי של הצבע הרביעי
+          useFourthColor
         );
       }
     } catch (err) {
@@ -243,7 +239,6 @@ export default function CalendarBuilder() {
     }
   };
 
-  // ✨ פונקציה המופעלת בלחיצה על ה-Checkbox של הצבע הרביעי
   const handleToggleFourthColor = (checked: boolean) => {
     setUseFourthColor(checked);
     if (rawData.length > 0) {
@@ -256,7 +251,6 @@ export default function CalendarBuilder() {
     const circle = updated[month].find((c) => c.id === id);
     if (!circle || circle.type === "anniversary") return;
 
-    // הגדרת המאגר הנוכחי לצורך החלפה ידנית
     const activeColors = useFourthColor ? birthdayColors : birthdayColors.slice(0, 3);
     const currentColorIndex = activeColors.indexOf(circle.color);
     const nextColorIndex = (currentColorIndex + 1) % activeColors.length;
@@ -284,19 +278,28 @@ export default function CalendarBuilder() {
     alert("הנתונים הועתקו! כעת עבור לקנבה ובצע הדבקה");
   };
 
+  const handleSizeIn = () => {
+    setCircleSize((prev) => Math.min(prev + 8, 96)); 
+  };
+
+  const handleSizeOut = () => {
+    setCircleSize((prev) => Math.max(prev - 8, 64)); 
+  };
+
   const activeMonths =
     calendarType === "gregorian" ? GREGORIAN_MONTHS : HEBREW_MONTHS;
 
   return (
+    // ✨ עדכון: שינוי ל-max-w-full כדי שהמיכל ינצל 100% מרוחב המסך הזמין שלך בדפדפן
     <div
-      className="p-8 max-w-7xl mx-auto text-right"
+      className="p-4 max-w-full mx-auto text-right"
       style={{ direction: "rtl", fontFamily: selectedFont }}
     >
-      <h1 className="text-3xl font-bold mb-6 text-slate-800">
+      <h1 className="text-3xl font-bold mb-6 text-slate-800 px-4">
         מחולל לוח תאריכים משפחתי
       </h1>
 
-      <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-6 flex flex-wrap gap-4 items-end">
+      <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-6 flex flex-wrap gap-4 items-end mx-4">
         <div className="flex-1 min-w-[300px]">
           <label className="block text-sm font-semibold mb-2 text-slate-700">
             קישור ל-Google Sheet (צפייה פתוחה):
@@ -338,14 +341,13 @@ export default function CalendarBuilder() {
       </div>
 
       {rawData.length > 0 && (
-        <div className="bg-white p-6 rounded-xl border border-indigo-100 shadow-sm mb-8 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+        <div className="bg-white p-6 rounded-xl border border-indigo-100 shadow-sm mb-8 grid grid-cols-1 md:grid-cols-2 gap-6 items-center mx-4">
           <div className="flex flex-wrap gap-6">
             <div>
               <div className="flex items-center gap-3 mb-2">
                 <label className="block text-xs font-bold text-slate-500">
                   צבעי ימי הולדת:
                 </label>
-                {/* ✨ תיבת הסימון החדשה להפעלת הצבע הרביעי כאופציה */}
                 <label className="flex items-center gap-1.5 text-xs text-indigo-600 font-semibold cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -358,9 +360,7 @@ export default function CalendarBuilder() {
               </div>
               <div className="flex gap-2">
                 {birthdayColors.map((color, idx) => {
-                  // אם הצבע הוא הרביעי ותיבת הסימון לא מסומנת - נסתיר אותו ויזואלית בממשק
                   if (idx === 3 && !useFourthColor) return null;
-                  
                   return (
                     <div key={idx} className="flex flex-col items-center gap-1">
                       <input
@@ -413,11 +413,32 @@ export default function CalendarBuilder() {
       )}
 
       {Object.keys(processedCalendar).length > 0 && (
-        <div>
+        <div className="px-4">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-slate-700">
-              תצוגה מקדימה של הלוח:
-            </h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-bold text-slate-700">
+                תצוגה מקדימה של הלוח
+              </h2>
+              <div className="flex gap-1.5" style={{ direction: "ltr" }}>
+                <button
+                  onClick={handleSizeOut}
+                  disabled={circleSize <= 64}
+                  className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold border border-slate-300 transition text-sm disabled:opacity-40"
+                  title="צמצם רוחב עמודות"
+                >
+                  —
+                </button>
+                <button
+                  onClick={handleSizeIn}
+                  disabled={circleSize >= 96}
+                  className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold border border-slate-300 transition text-sm disabled:opacity-40"
+                  title="הרחב לגודל מקורי"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            
             <button
               onClick={handlePrepareDataForCanva}
               className="bg-emerald-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-emerald-700 shadow transition text-lg"
@@ -426,36 +447,46 @@ export default function CalendarBuilder() {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-inner">
+          {/* ✨ עדכון: שינוי ה-gap בין העמודות מ-gap-4 ל-gap-1.5 כדי לצמצם מרווחים ריקים */}
+          <div className="flex gap-1.5 bg-white p-3 rounded-xl border border-slate-200 shadow-inner overflow-x-auto scrollbar-thin pb-6 justify-start">
             {activeMonths.map((month) => (
               <div
                 key={month}
-                className="bg-slate-50 p-3 rounded-lg border border-slate-200 flex flex-col items-center min-h-[300px]"
+                style={{ 
+                  // ✨ עדכון: צמצום הריפוד של העמודה מ-+16 ל-+8 פיקסלים בלבד מסביב לעיגול
+                  minWidth: `${circleSize + 8}px`, 
+                  width: `${circleSize + 8}px` 
+                }}
+                className="bg-slate-50 p-1 rounded-lg border border-slate-200 flex flex-col items-center min-h-[300px] shrink-0 transition-all duration-150"
               >
-                <div className="font-bold text-lg text-indigo-900 border-b-2 border-indigo-200 w-full text-center pb-1 mb-4">
+                <div className="font-bold text-xs text-indigo-900 border-b border-indigo-200 w-full text-center pb-0.5 mb-2.5 truncate">
                   {month}
                 </div>
 
-                <div className="flex flex-col gap-3 w-full items-center">
+                <div className="flex flex-col gap-2 w-full items-center">
                   {processedCalendar[month]?.map((circle) => (
                     <div
                       key={circle.id}
                       onClick={() =>
                         handleSingleCircleColorChange(month, circle.id)
                       }
-                      style={{ backgroundColor: circle.color }}
-                      className={`w-24 h-24 rounded-full flex flex-col justify-center items-center text-center p-2 cursor-pointer shadow border transition-all hover:scale-105 select-none border-slate-300`}
+                      style={{ 
+                        backgroundColor: circle.color,
+                        width: `${circleSize}px`,
+                        height: `${circleSize}px`,
+                      }}
+                      className="rounded-full flex flex-col justify-center items-center text-center p-1 cursor-pointer shadow border transition-all hover:scale-105 select-none border-slate-300 shrink-0"
                     >
-                      <span className="text-xs font-bold text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis max-w-full px-1 leading-tight">
+                      <span className="text-[11px] font-bold text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis max-w-full px-0.5 leading-tight">
                         {circle.name}
                       </span>
-                      <span className="text-sm font-extrabold text-slate-900 mt-0.5">
+                      <span className="text-xs font-extrabold text-slate-900 mt-0.5">
                         {circle.date}
                       </span>
                     </div>
                   ))}
                   {processedCalendar[month]?.length === 0 && (
-                    <span className="text-xs text-slate-400 italic mt-4">
+                    <span className="text-[10px] text-slate-400 italic mt-4">
                       אין אירועים
                     </span>
                   )}
