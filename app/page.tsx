@@ -90,11 +90,16 @@ export default function CalendarBuilder() {
     Record<string, ProcessedCircle[]>
   >({});
 
+  // רשימת 4 צבעים התחלתית
   const [birthdayColors, setBirthdayColors] = useState<string[]>([
     "#FFFFFF",
     "#ADD8E6",
     "#FFD700",
+    "#98FB98", 
   ]); 
+  // ✨ מצב המציין האם הצבע הרביעי פעיל כרגע או לא
+  const [useFourthColor, setUseFourthColor] = useState<boolean>(false);
+
   const [anniversaryColor, setAnniversaryColor] = useState<string>("#FFC0CB"); 
   const [selectedFont, setSelectedFont] = useState<string>(
     "system-ui, sans-serif",
@@ -108,6 +113,7 @@ export default function CalendarBuilder() {
     type: "gregorian" | "hebrew",
     currentColors: string[],
     currentAnniversaryColor: string,
+    enableFourth: boolean // ✨ הוספת הפרמטר לבדיקת אופציונליות הצבע הרביעי
   ) => {
     const monthsList = type === "gregorian" ? GREGORIAN_MONTHS : HEBREW_MONTHS;
     const sortedCalendar: Record<string, ProcessedCircle[]> = {};
@@ -145,7 +151,10 @@ export default function CalendarBuilder() {
       });
     });
 
-    // ✨ 3. אלגוריתם צבעים משודרג: מניעת שכנים בתוך העמודה ומניעת שכנים בעמודות סמוכות
+    // ✨ סינון מאגר הצבעים הזמין: אם enableFourth הוא false, נשתמש רק ב-3 הצבעים הראשונים במערך
+    const activeBirthdayColors = enableFourth ? currentColors : currentColors.slice(0, 3);
+
+    // 3. אלגוריתם צבעים משודרג
     monthsList.forEach((month, monthIdx) => {
       const currentMonthEvents = sortedCalendar[month];
 
@@ -155,29 +164,27 @@ export default function CalendarBuilder() {
           return;
         }
 
-        // א. בדיקת שכן קודם באותו חודש (באותה עמודה)
+        // א. בדיקת שכן קודם באותו חודש
         const sameMonthPrevColor = idx > 0 ? currentMonthEvents[idx - 1].color : null;
 
-        // ב. בדיקת שכן בעמודה הסמוכה משמאל (החודש הקודם)
+        // ב. בדיקת שכן בעמודה הסמוכה משמאל באותו אינדקס
         let neighborMonthPrevColor: string | null = null;
         if (monthIdx > 0) {
           const prevMonthName = monthsList[monthIdx - 1];
           const prevMonthEvents = sortedCalendar[prevMonthName];
           
-          // אם יש אירועים בחודש הקודם, ניקח את הצבע של האירוע שנמצא באותו מיקום אינדקס (או האחרון שבהם)
           if (prevMonthEvents && prevMonthEvents.length > 0) {
             const targetIdx = Math.min(idx, prevMonthEvents.length - 1);
             neighborMonthPrevColor = prevMonthEvents[targetIdx].color;
           }
         }
 
-        // סינון הצבעים האסורים (גם מהחודש הנוכחי וגם מהחודש השכן)
-        const allowedColors = currentColors.filter(
+        // סינון הצבעים האסורים מתוך המאגר האקטיבי שנבחר
+        const allowedColors = activeBirthdayColors.filter(
           (c) => c !== sameMonthPrevColor && c !== neighborMonthPrevColor
         );
 
-        // הגרלה מתוך הצבעים המותרים בלבד, ואם כולם חסומים - נחזור לברירת המחדל
-        const finalOptions = allowedColors.length > 0 ? allowedColors : currentColors;
+        const finalOptions = allowedColors.length > 0 ? allowedColors : activeBirthdayColors;
         event.color = finalOptions[Math.floor(Math.random() * finalOptions.length)];
       });
     });
@@ -209,6 +216,7 @@ export default function CalendarBuilder() {
           calendarType,
           birthdayColors,
           anniversaryColor,
+          useFourthColor // שליחת המצב הנוכחי של הצבע הרביעי
         );
       }
     } catch (err) {
@@ -224,14 +232,22 @@ export default function CalendarBuilder() {
     setBirthdayColors(updatedColors);
 
     if (rawData.length > 0) {
-      processData(rawData, calendarType, updatedColors, anniversaryColor);
+      processData(rawData, calendarType, updatedColors, anniversaryColor, useFourthColor);
     }
   };
 
   const handleAnniversaryColorChange = (newColor: string) => {
     setAnniversaryColor(newColor);
     if (rawData.length > 0) {
-      processData(rawData, calendarType, birthdayColors, newColor);
+      processData(rawData, calendarType, birthdayColors, newColor, useFourthColor);
+    }
+  };
+
+  // ✨ פונקציה המופעלת בלחיצה על ה-Checkbox של הצבע הרביעי
+  const handleToggleFourthColor = (checked: boolean) => {
+    setUseFourthColor(checked);
+    if (rawData.length > 0) {
+      processData(rawData, calendarType, birthdayColors, anniversaryColor, checked);
     }
   };
 
@@ -240,9 +256,11 @@ export default function CalendarBuilder() {
     const circle = updated[month].find((c) => c.id === id);
     if (!circle || circle.type === "anniversary") return;
 
-    const currentColorIndex = birthdayColors.indexOf(circle.color);
-    const nextColorIndex = (currentColorIndex + 1) % birthdayColors.length;
-    circle.color = birthdayColors[nextColorIndex];
+    // הגדרת המאגר הנוכחי לצורך החלפה ידנית
+    const activeColors = useFourthColor ? birthdayColors : birthdayColors.slice(0, 3);
+    const currentColorIndex = activeColors.indexOf(circle.color);
+    const nextColorIndex = (currentColorIndex + 1) % activeColors.length;
+    circle.color = activeColors[nextColorIndex];
     setProcessedCalendar(updated);
   };
 
@@ -323,25 +341,42 @@ export default function CalendarBuilder() {
         <div className="bg-white p-6 rounded-xl border border-indigo-100 shadow-sm mb-8 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
           <div className="flex flex-wrap gap-6">
             <div>
-              <label className="block text-xs font-bold text-slate-500 mb-2">
-                צבעי ימי הולדת (3 סוגים):
-              </label>
+              <div className="flex items-center gap-3 mb-2">
+                <label className="block text-xs font-bold text-slate-500">
+                  צבעי ימי הולדת:
+                </label>
+                {/* ✨ תיבת הסימון החדשה להפעלת הצבע הרביעי כאופציה */}
+                <label className="flex items-center gap-1.5 text-xs text-indigo-600 font-semibold cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={useFourthColor}
+                    onChange={(e) => handleToggleFourthColor(e.target.checked)}
+                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                  />
+                  אפשר צבע רביעי 🎨
+                </label>
+              </div>
               <div className="flex gap-2">
-                {birthdayColors.map((color, idx) => (
-                  <div key={idx} className="flex flex-col items-center gap-1">
-                    <input
-                      type="color"
-                      value={color}
-                      onChange={(e) =>
-                        handleBirthdayColorChange(idx, e.target.value)
-                      }
-                      className="w-10 h-10 rounded cursor-pointer border border-slate-300"
-                    />
-                    <span className="text-[10px] text-slate-400">
-                      צבע {idx + 1}
-                    </span>
-                  </div>
-                ))}
+                {birthdayColors.map((color, idx) => {
+                  // אם הצבע הוא הרביעי ותיבת הסימון לא מסומנת - נסתיר אותו ויזואלית בממשק
+                  if (idx === 3 && !useFourthColor) return null;
+                  
+                  return (
+                    <div key={idx} className="flex flex-col items-center gap-1">
+                      <input
+                        type="color"
+                        value={color}
+                        onChange={(e) =>
+                          handleBirthdayColorChange(idx, e.target.value)
+                        }
+                        className="w-10 h-10 rounded cursor-pointer border border-slate-300"
+                      />
+                      <span className="text-[10px] text-slate-400">
+                        צבע {idx + 1}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
