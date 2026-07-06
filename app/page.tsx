@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import html2canvas from "html2canvas-pro";
 
 interface RawEvent {
   "שם / שמות": string;
@@ -73,14 +74,14 @@ const AVAILABLE_DESIGNS = [
     id: "design_1",
     name: "עיצוב 1 (3 צבעים)",
     imagePath: "/designs/design_1.jpeg",
-    colors: ["#ebcdbb", "#b9dfd3", "#e8b6c7", "#FFFFFF"], // שומרים 4 צבעים במערך, אך משתמשים ב-3
+    colors: ["#ebcdbb", "#b9dfd3", "#FFFFFF", "#FFFFFF"], // שומרים 4 צבעים במערך, אך משתמשים ב-3
     useFourth: false,
   },
   {
     id: "design_2",
     name: "עיצוב 2 (4 צבעים)",
     imagePath: "/designs/design_2.jpeg",
-    colors: ["#bfafa5", "#f1dd99", "#f8bd8d", "#e8b6c7"],
+    colors: ["#bfafa5", "#f1dd99", "#f8bd8d", "#FFFFFF"],
     useFourth: true,
   },
 ];
@@ -136,6 +137,9 @@ export default function CalendarBuilder() {
   const [processedCalendar, setProcessedCalendar] = useState<
     Record<string, ProcessedCircle[]>
   >({});
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailInput, setEmailInput] = useState("herut.photo@gmail.com");
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
 
   const [birthdayColors, setBirthdayColors] = useState<string[]>([
     "#FFFFFF",
@@ -144,7 +148,7 @@ export default function CalendarBuilder() {
     "#98FB98",
   ]);
   const [useFourthColor, setUseFourthColor] = useState<boolean>(false);
-  const [anniversaryColor, setAnniversaryColor] = useState<string>("#FFC0CB");
+  const [anniversaryColor, setAnniversaryColor] = useState<string>("#e8b6c7");
   const [selectedFont, setSelectedFont] = useState<string>(
     "system-ui, sans-serif",
   );
@@ -223,34 +227,64 @@ export default function CalendarBuilder() {
     monthsList.forEach((month, monthIdx) => {
       const currentMonthEvents = sortedCalendar[month];
 
+      // ✨ שיפור: החזקת מונה תדירויות עבור צבעי ימי ההולדת בחודש הנוכחי
+      const colorUsageInMonth: Record<string, number> = {};
+      activeBirthdayColors.forEach((c) => {
+        colorUsageInMonth[c] = 0;
+      });
+
       currentMonthEvents.forEach((event, idx) => {
         if (event.type === "anniversary") {
           event.color = currentAnniversaryColor;
           return;
         }
 
+        // הגדרת השכן הקודם באותו החודש (מלמעלה)
         const sameMonthPrevColor =
           idx > 0 ? currentMonthEvents[idx - 1].color : null;
 
+        // הגדרת השכן באותו אינדקס בחודש הקודם (מימין)
+  // הגדרת השכן באותו אינדקס בחודש הקודם (מימין)
         let neighborMonthPrevColor: string | null = null;
         if (monthIdx > 0) {
           const prevMonthName = monthsList[monthIdx - 1];
           const prevMonthEvents = sortedCalendar[prevMonthName];
 
-          if (prevMonthEvents && prevMonthEvents.length > 0) {
-            const targetIdx = Math.min(idx, prevMonthEvents.length - 1);
-            neighborMonthPrevColor = prevMonthEvents[targetIdx].color;
+          // ✨ התיקון: בודקים אם יש אירוע מקביל באותו אינדקס בדיוק בחודש הקודם
+          if (prevMonthEvents && prevMonthEvents[idx]) {
+            neighborMonthPrevColor = prevMonthEvents[idx].color;
           }
+          // אם idx גדול יותר מכמות האירועים שם, neighborMonthPrevColor יישאר null (הצבע משוחרר!)
         }
 
-        const allowedColors = activeBirthdayColors.filter(
+        // 1. סינון ראשוני: מציאת הצבעים שלא יגרמו לכפילות עם השכנים
+        let allowedColors = activeBirthdayColors.filter(
           (c) => c !== sameMonthPrevColor && c !== neighborMonthPrevColor,
         );
 
-        const finalOptions =
-          allowedColors.length > 0 ? allowedColors : activeBirthdayColors;
-        event.color =
-          finalOptions[Math.floor(Math.random() * finalOptions.length)];
+        // הגנה: אם כולם חסומים, נתפשר ונאפשר את כל הצבעים הפעילים
+        if (allowedColors.length === 0) {
+          allowedColors = activeBirthdayColors;
+        }
+
+        // 2. מיון חכם: מוצאים מהו רף השימוש המינימלי מבין הצבעים המותרים
+        const minUsage = Math.min(
+          ...allowedColors.map((c) => colorUsageInMonth[c] || 0),
+        );
+
+        // 3. סינון לצבעים שהשתמשו בהם הכי פחות (העדיפות העליונה)
+        const bestColorOptions = allowedColors.filter(
+          (c) => (colorUsageInMonth[c] || 0) === minUsage,
+        );
+
+        // 4. בחירה אקראית מתוך קבוצת הצבעים המגוונת ביותר הזמינה
+        const chosenColor =
+          bestColorOptions[Math.floor(Math.random() * bestColorOptions.length)];
+
+        // השמת הצבע ועדכון המונה לחודש זה
+        event.color = chosenColor;
+        colorUsageInMonth[chosenColor] =
+          (colorUsageInMonth[chosenColor] || 0) + 1;
       });
     });
 
@@ -389,6 +423,13 @@ export default function CalendarBuilder() {
   };
 
   const handlePrepareDataForCanva = () => {
+    // ✨ תזכורת חדשה: שואלת את המשתמש ומאפשרת לו לעצור אם הוא שכח לשלוח מייל
+    const confirmEmail = confirm(
+      "📢 תזכורת חשובה!\nהאם שלחת לעצמך צילום מסך של הלוח והצבעים הנוכחיים למייל?\n\nלחץ 'אישור' כדי להמשיך להעתקה לקנבה, או 'ביטול' כדי לשלוח מייל קודם.",
+    );
+
+    // אם המשתמש לחץ ביטול (Cancel), אנחנו עוצרים את הפונקציה ולא פותחים את המודאל
+    if (!confirmEmail) return;
     const allEvents: ProcessedCircle[] = [];
 
     Object.keys(processedCalendar).forEach((month) => {
@@ -449,6 +490,51 @@ export default function CalendarBuilder() {
 
   const activeMonths =
     calendarType === "gregorian" ? GREGORIAN_MONTHS : HEBREW_MONTHS;
+
+  const handleSendEmail = async () => {
+    if (!emailInput) return alert("נא להזין כתובת אימייל תקנית");
+
+    // מוצאים את האלמנט שעוטף את כל חודשי הלוח שנה כדי לצלם רק אותו
+    // נשתמש ב-ID ייעודי שנוסיף מיד בדילוג הבא (למשל 'calendar-preview-area')
+    const calendarElement = document.getElementById("calendar-preview-area");
+    if (!calendarElement) return alert("לא ניתן היה למצוא את אזור הלוח לצילום");
+
+    setIsSendingEmail(true);
+
+    try {
+      // 1. יצירת צילום מסך של הלוח ישירות בדפדפן
+      const canvas = await html2canvas(calendarElement, {
+        useCORS: true, // תמיכה בטעינת תמונות ממקורות חיצוניים כמו הבאנר
+        scale: 2, // הגדלת האיכות של צילום המסך (רזולוציה כפולה)
+        backgroundColor: "#ffffff", // ✨ הכרחי: מכריח צבע רקע לבן נקי במקום לרשת הגדרות צבע בעייתיות מה-CSS של האב
+      });
+
+      const imageBase64 = canvas.toDataURL("image/png");
+
+      // 2. שליחת הנתונים ל-API שרת שלנו שרץ ב-Vercel
+      const response = await fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          imageBase64,
+          userEmail: emailInput,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert("📧 המייל נשלח בהצלחה יחד עם צילום הלוח הנוכחי!");
+      } else {
+        alert(`שגיאה בשליחת המייל: ${result.error}`);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("התרחשה שגיאה במהלך יצירת הלוח או שליחת המייל");
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
 
   return (
     <div
@@ -610,6 +696,49 @@ export default function CalendarBuilder() {
                 🎲 הגרל צבעים מחדש
               </button>
             </div>
+            {/* רכיב שליחת המייל המשודרג ב-UI */}
+            <div className="flex flex-col gap-2 border-r pr-6 border-slate-200">
+              <label className="block text-xs font-bold text-slate-500">
+                שלח עותק למייל:
+              </label>
+              <div className="flex gap-2 items-center h-10">
+                <div className="relative flex items-center h-full">
+                  <input
+                    type="email"
+                    placeholder="your-email@example.com"
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    disabled={!isEditingEmail} // ✨ חסום כל עוד לא במצב עריכה
+                    className={`p-2 pl-12 border rounded-lg text-sm h-full w-52 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${
+                      !isEditingEmail
+                        ? "bg-slate-50 text-slate-500 border-slate-200 cursor-not-allowed"
+                        : "bg-white text-slate-900 border-slate-300"
+                    }`}
+                  />
+                  {/* כפתור עריכה/שמירה קטן בתוך תיבת האינפוט בצד שמאל */}
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingEmail(!isEditingEmail)}
+                    className="absolute left-2 text-xs font-semibold px-1.5 py-0.5 rounded text-indigo-600 hover:bg-indigo-50 transition"
+                  >
+                    {isEditingEmail ? "💾 שמור" : "✏️ ערוך"}
+                  </button>
+                </div>
+
+                <button
+                  onClick={handleSendEmail}
+                  disabled={isSendingEmail || isEditingEmail} // חסום את השליחה אם המשתמש באמצע עריכה ולא שמר
+                  className="bg-emerald-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-emerald-700 transition text-sm h-full flex items-center justify-center gap-1 shadow-sm disabled:opacity-50"
+                >
+                  {isSendingEmail ? "⏳ שולח..." : "📧 שלח צילום מסך"}
+                </button>
+              </div>
+              {isEditingEmail && (
+                <span className="text-[10px] text-amber-600 font-medium animate-pulse">
+                  לחץ על "שמור" לפני השליחה המייל
+                </span>
+              )}
+            </div>
           </div>
 
           {/* 4. מקטע בחירת הפונט (מיושר לשמאל ב-Desktop) */}
@@ -646,7 +775,10 @@ export default function CalendarBuilder() {
             </button>
           </div>
 
-          <div className="flex gap-1.5 bg-white p-3 rounded-xl border border-slate-200 shadow-inner overflow-x-auto scrollbar-thin pb-6 justify-start">
+          <div
+            id="calendar-preview-area"
+            className="flex gap-1.5 bg-white p-3 rounded-xl border border-slate-200 shadow-inner overflow-x-auto scrollbar-thin pb-6 justify-start"
+          >
             {activeMonths.map((month) => (
               <div
                 key={month}
@@ -686,7 +818,7 @@ export default function CalendarBuilder() {
                           <div className="absolute inset-0 w-full h-full flex items-center justify-center">
                             <svg
                               viewBox="1.75 3 20.5 18.35"
-                              className="absolute inset-0 w-full h-full drop-shadow-sm"
+                              className="absolute inset-0 w-full h-full"
                               style={{
                                 fill: circle.color,
                                 width: "100%",
@@ -696,8 +828,9 @@ export default function CalendarBuilder() {
                               <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                             </svg>
                             {/* התאמת מיקום הטקסט במרכז העמוק של הלב המוגדל */}
-                            <div className="relative z-10 flex flex-col items-center justify-center p-1 select-none text-center max-w-[80%] mt-[-6px]">
-                              <span className="text-[11px] font-bold text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis max-w-full px-0.5 leading-tight">
+                            {/* התאמת מיקום הטקסט במרכז העמוק של הלב המוגדל */}
+                            <div className="relative z-10 flex flex-col items-center justify-center p-1 select-none text-center max-w-[80%] mt-[-6px] w-full">
+                              <span className="text-[11px] font-bold text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis w-full block text-center px-0.5 leading-tight">
                                 {circle.name}
                               </span>
                               <span
@@ -711,7 +844,7 @@ export default function CalendarBuilder() {
                         ) : (
                           // תוכן רגיל של עיגול עבור ימי הולדת
                           <>
-                            <span className="text-[11px] font-bold text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis max-w-full px-0.5 leading-tight">
+                            <span className="text-[11px] font-bold text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis w-full block text-center px-0.5 leading-tight">
                               {circle.name}
                             </span>
                             <span className="text-xs font-extrabold text-slate-900 mt-0.5">
