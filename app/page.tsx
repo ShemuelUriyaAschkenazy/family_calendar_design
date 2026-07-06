@@ -138,8 +138,11 @@ export default function CalendarBuilder() {
     Record<string, ProcessedCircle[]>
   >({});
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false); // ✨ State חדש לטעינת התצוגה
+  const [previewImage, setPreviewImage] = useState<string | null>(null); // ✨ State חדש לשמירת התמונה
   const [emailInput, setEmailInput] = useState("herut.photo@gmail.com");
   const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [familyName, setFamilyName] = useState(""); // ✨ State חדש עבור שם המשפחה המבוקש
 
   const [birthdayColors, setBirthdayColors] = useState<string[]>([
     "#FFFFFF",
@@ -244,7 +247,7 @@ export default function CalendarBuilder() {
           idx > 0 ? currentMonthEvents[idx - 1].color : null;
 
         // הגדרת השכן באותו אינדקס בחודש הקודם (מימין)
-  // הגדרת השכן באותו אינדקס בחודש הקודם (מימין)
+        // הגדרת השכן באותו אינדקס בחודש הקודם (מימין)
         let neighborMonthPrevColor: string | null = null;
         if (monthIdx > 0) {
           const prevMonthName = monthsList[monthIdx - 1];
@@ -491,46 +494,61 @@ export default function CalendarBuilder() {
   const activeMonths =
     calendarType === "gregorian" ? GREGORIAN_MONTHS : HEBREW_MONTHS;
 
-  const handleSendEmail = async () => {
-    if (!emailInput) return alert("נא להזין כתובת אימייל תקנית");
-
-    // מוצאים את האלמנט שעוטף את כל חודשי הלוח שנה כדי לצלם רק אותו
-    // נשתמש ב-ID ייעודי שנוסיף מיד בדילוג הבא (למשל 'calendar-preview-area')
+  // ✨ פונקציה 1: מייצרת את ה-Preview ושומרת אותו ב-State
+  const handleGeneratePreview = async () => {
     const calendarElement = document.getElementById("calendar-preview-area");
     if (!calendarElement) return alert("לא ניתן היה למצוא את אזור הלוח לצילום");
+
+    setIsGeneratingPreview(true);
+    setPreviewImage(null); // איפוס תמונה קודמת אם היתה
+
+    try {
+      const canvas = await html2canvas(calendarElement, {
+        useCORS: true,
+        scale: 2,
+        backgroundColor: "#ffffff",
+      });
+
+      const imageBase64 = canvas.toDataURL("image/png");
+      setPreviewImage(imageBase64); // שמירת הצילום המדויק ב-State
+    } catch (error) {
+      console.error(error);
+      alert("התרחשה שגיאה במהלך יצירת התצוגה המקדימה של הקובץ");
+    } finally {
+      setIsGeneratingPreview(false);
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!emailInput) return alert("נא להזין כתובת אימייל תקנית");
+    if (!familyName.trim())
+      return alert("נא להזין את שם המשפחה עבורה מיועד הלוח"); // ✨ בדיקת חובה
+    if (!previewImage) return alert("נא לייצר תצוגה מקדימה תחילה");
 
     setIsSendingEmail(true);
 
     try {
-      // 1. יצירת צילום מסך של הלוח ישירות בדפדפן
-      const canvas = await html2canvas(calendarElement, {
-        useCORS: true, // תמיכה בטעינת תמונות ממקורות חיצוניים כמו הבאנר
-        scale: 2, // הגדלת האיכות של צילום המסך (רזולוציה כפולה)
-        backgroundColor: "#ffffff", // ✨ הכרחי: מכריח צבע רקע לבן נקי במקום לרשת הגדרות צבע בעייתיות מה-CSS של האב
-      });
-
-      const imageBase64 = canvas.toDataURL("image/png");
-
-      // 2. שליחת הנתונים ל-API שרת שלנו שרץ ב-Vercel
       const response = await fetch("/api/send-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          imageBase64,
+          imageBase64: previewImage,
           userEmail: emailInput,
+          familyName: familyName.trim(), // ✨ שליחת שם המשפחה ל-API
         }),
       });
 
       const result = await response.json();
 
       if (response.ok) {
-        alert("📧 המייל נשלח בהצלחה יחד עם צילום הלוח הנוכחי!");
+        alert("📧 המייל נשלח בהצלחה יחד עם קובץ התצוגה המקדימה שאישרת!");
+        setPreviewImage(null);
       } else {
         alert(`שגיאה בשליחת המייל: ${result.error}`);
       }
     } catch (error) {
       console.error(error);
-      alert("התרחשה שגיאה במהלך יצירת הלוח או שליחת המייל");
+      alert("התרחשה שגיאה במהלך שליחת המייל");
     } finally {
       setIsSendingEmail(false);
     }
@@ -696,26 +714,25 @@ export default function CalendarBuilder() {
                 🎲 הגרל צבעים מחדש
               </button>
             </div>
-            {/* רכיב שליחת המייל המשודרג ב-UI */}
+            {/* רכיב שליחת המייל המשודרג עם שלב Preview מובנה */}
             <div className="flex flex-col gap-2 border-r pr-6 border-slate-200">
               <label className="block text-xs font-bold text-slate-500">
                 שלח עותק למייל:
               </label>
-              <div className="flex gap-2 items-center h-10">
-                <div className="relative flex items-center h-full">
+              <div className="flex flex-wrap gap-2 items-center min-h-10">
+                <div className="relative flex items-center h-10">
                   <input
                     type="email"
                     placeholder="your-email@example.com"
                     value={emailInput}
                     onChange={(e) => setEmailInput(e.target.value)}
-                    disabled={!isEditingEmail} // ✨ חסום כל עוד לא במצב עריכה
+                    disabled={!isEditingEmail}
                     className={`p-2 pl-12 border rounded-lg text-sm h-full w-52 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${
                       !isEditingEmail
                         ? "bg-slate-50 text-slate-500 border-slate-200 cursor-not-allowed"
                         : "bg-white text-slate-900 border-slate-300"
                     }`}
                   />
-                  {/* כפתור עריכה/שמירה קטן בתוך תיבת האינפוט בצד שמאל */}
                   <button
                     type="button"
                     onClick={() => setIsEditingEmail(!isEditingEmail)}
@@ -725,17 +742,43 @@ export default function CalendarBuilder() {
                   </button>
                 </div>
 
+                {/* שדה קלט: עבור איזו משפחה הלוח? */}
+                <div className="flex items-center h-10">
+                  <input
+                    type="text"
+                    placeholder="עבור איזו משפחה זה?"
+                    value={familyName}
+                    onChange={(e) => setFamilyName(e.target.value)}
+                    disabled={isSendingEmail || isGeneratingPreview}
+                    className="p-2 border border-slate-300 rounded-lg text-sm h-full w-44 bg-white text-slate-900 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
+                  />
+                </div>
+
+                {/* שלב 1: כפתור יצירת תצוגה מקדימה */}
+                <button
+                  onClick={handleGeneratePreview}
+                  disabled={
+                    isGeneratingPreview || isSendingEmail || isEditingEmail
+                  }
+                  className="bg-indigo-600 text-white font-bold py-2 px-3 rounded-lg hover:bg-indigo-700 transition text-sm h-10 flex items-center justify-center gap-1 shadow-sm disabled:opacity-50"
+                >
+                  {isGeneratingPreview
+                    ? "⏳ מייצר תצוגה..."
+                    : "📸 1. צור תצוגה מקדימה"}
+                </button>
+
+                {/* שלב 2: כפתור שליחת המייל - הוסר ה-Disabled עבור חוסר בשם משפחה */}
                 <button
                   onClick={handleSendEmail}
-                  disabled={isSendingEmail || isEditingEmail} // חסום את השליחה אם המשתמש באמצע עריכה ולא שמר
-                  className="bg-emerald-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-emerald-700 transition text-sm h-full flex items-center justify-center gap-1 shadow-sm disabled:opacity-50"
+                  disabled={!previewImage || isSendingEmail || isEditingEmail}
+                  className="bg-emerald-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-emerald-700 transition text-sm h-10 flex items-center justify-center gap-1 shadow-sm disabled:opacity-50 disabled:bg-slate-300 disabled:cursor-not-allowed"
                 >
-                  {isSendingEmail ? "⏳ שולח..." : "📧 שלח צילום מסך"}
+                  {isSendingEmail ? "⏳ שולח..." : "📧 2. שלח את מה שמוצג"}
                 </button>
               </div>
               {isEditingEmail && (
                 <span className="text-[10px] text-amber-600 font-medium animate-pulse">
-                  לחץ על "שמור" לפני השליחה המייל
+                  לחץ על "שמור" לפני ביצוע פעולות המייל
                 </span>
               )}
             </div>
@@ -762,109 +805,142 @@ export default function CalendarBuilder() {
       )}
 
       {Object.keys(processedCalendar).length > 0 && (
-        <div className="px-4">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-slate-700">
-              תצוגה מקדימה של הלוח
-            </h2>
-            <button
-              onClick={handlePrepareDataForCanva}
-              className="bg-emerald-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-emerald-700 shadow transition text-lg"
-            >
-              הכן נתונים להעתקה לקנבה ✨
-            </button>
-          </div>
+        <>
+          {/* חלון אישור ויזואלי של קובץ ה-Preview שיישלח למייל */}
+          {previewImage && (
+            <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl mb-6 shadow-sm animate-fadeIn">
+              <div className="flex justify-between items-center mb-2 border-b border-amber-200 pb-2">
+                <span className="text-sm font-bold text-amber-800 flex items-center gap-1.5">
+                  🔍 בדיקת קובץ הצילום המיועד למייל:
+                </span>
+                <button
+                  onClick={() => setPreviewImage(null)}
+                  className="text-xs font-bold text-amber-700 hover:underline"
+                >
+                  ✕ בטל / נקה צילום
+                </button>
+              </div>
+              <p className="text-xs text-amber-700 mb-3">
+                זהו בדיוק הקובץ שיישלח כקובץ מצורף (Attachment). ודא שכל השמות,
+                התאריכים והבאנר מופיעים כאן בצורה תקינה. אם הכל תקין, לחץ על
+                כפתור <b>"2. שלח את מה שמוצג"</b> למעלה.
+              </p>
+              <div className="border border-slate-300 rounded-lg overflow-hidden max-h-64 overflow-y-auto bg-white shadow-inner">
+                <img
+                  src={previewImage}
+                  alt="Email Attachment Preview"
+                  className="w-full h-auto object-contain"
+                />
+              </div>
+            </div>
+          )}
 
-          <div
-            id="calendar-preview-area"
-            className="flex gap-1.5 bg-white p-3 rounded-xl border border-slate-200 shadow-inner overflow-x-auto scrollbar-thin pb-6 justify-start"
-          >
-            {activeMonths.map((month) => (
-              <div
-                key={month}
-                style={{
-                  minWidth: `${circleSize + 8}px`,
-                  width: `${circleSize + 8}px`,
-                }}
-                className="bg-slate-50 p-1 rounded-lg border border-slate-200 flex flex-col items-center min-h-[300px] shrink-0"
+          <div className="px-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-slate-700">
+                תצוגה מקדימה של הלוח
+              </h2>
+              <button
+                onClick={handlePrepareDataForCanva}
+                className="bg-emerald-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-emerald-700 shadow transition text-lg"
               >
-                <div className="font-bold text-xs text-indigo-900 border-b border-indigo-200 w-full text-center pb-0.5 mb-2.5 truncate">
-                  {month}
-                </div>
+                הכן נתונים להעתקה לקנבה ✨
+              </button>
+            </div>
 
-                <div className="flex flex-col gap-2 w-full items-center">
-                  {processedCalendar[month]?.map((circle) => {
-                    const isAnniversary = circle.type === "anniversary";
+            <div
+              id="calendar-preview-area"
+              className="flex gap-1.5 bg-white p-3 rounded-xl border border-slate-200 shadow-inner overflow-x-auto scrollbar-thin pb-6 justify-start"
+            >
+              {activeMonths.map((month) => (
+                <div
+                  key={month}
+                  style={{
+                    minWidth: `${circleSize + 8}px`,
+                    width: `${circleSize + 8}px`,
+                  }}
+                  className="bg-slate-50 p-1 rounded-lg border border-slate-200 flex flex-col items-center min-h-[300px] shrink-0"
+                >
+                  <div className="font-bold text-xs text-indigo-900 border-b border-indigo-200 w-full text-center pb-0.5 mb-2.5 truncate">
+                    {month}
+                  </div>
 
-                    return (
-                      <div
-                        key={circle.id}
-                        onClick={() =>
-                          handleSingleCircleColorChange(month, circle.id)
-                        }
-                        style={{
-                          width: `${circleSize}px`,
-                          height: `${circleSize}px`,
-                          backgroundColor: isAnniversary
-                            ? "transparent"
-                            : circle.color,
-                        }}
-                        className={`relative flex flex-col justify-center items-center text-center cursor-pointer select-none border-slate-300 shrink-0 transition-all hover:scale-105 ${
-                          isAnniversary ? "" : "rounded-full shadow border p-1"
-                        }`}
-                      >
-                        {/* רנדור צורת הלב המשודרגת עבור ימי נישואין */}
-                        {isAnniversary ? (
-                          <div className="absolute inset-0 w-full h-full flex items-center justify-center">
-                            <svg
-                              viewBox="1.75 3 20.5 18.35"
-                              className="absolute inset-0 w-full h-full"
-                              style={{
-                                fill: circle.color,
-                                width: "100%",
-                                height: "100%",
-                              }}
-                            >
-                              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                            </svg>
-                            {/* התאמת מיקום הטקסט במרכז העמוק של הלב המוגדל */}
-                            {/* התאמת מיקום הטקסט במרכז העמוק של הלב המוגדל */}
-                            <div className="relative z-10 flex flex-col items-center justify-center p-1 select-none text-center max-w-[80%] mt-[-6px] w-full">
+                  <div className="flex flex-col gap-2 w-full items-center">
+                    {processedCalendar[month]?.map((circle) => {
+                      const isAnniversary = circle.type === "anniversary";
+
+                      return (
+                        <div
+                          key={circle.id}
+                          onClick={() =>
+                            handleSingleCircleColorChange(month, circle.id)
+                          }
+                          style={{
+                            width: `${circleSize}px`,
+                            height: `${circleSize}px`,
+                            backgroundColor: isAnniversary
+                              ? "transparent"
+                              : circle.color,
+                          }}
+                          className={`relative flex flex-col justify-center items-center text-center cursor-pointer select-none border-slate-300 shrink-0 transition-all hover:scale-105 ${
+                            isAnniversary
+                              ? ""
+                              : "rounded-full shadow border p-1"
+                          }`}
+                        >
+                          {/* רנדור צורת הלב המשודרגת עבור ימי נישואין */}
+                          {isAnniversary ? (
+                            <div className="absolute inset-0 w-full h-full flex items-center justify-center">
+                              <svg
+                                viewBox="1.75 3 20.5 18.35"
+                                className="absolute inset-0 w-full h-full"
+                                style={{
+                                  fill: circle.color,
+                                  width: "100%",
+                                  height: "100%",
+                                }}
+                              >
+                                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                              </svg>
+                              {/* התאמת מיקום הטקסט במרכז העמוק של הלב המוגדל */}
+                              {/* התאמת מיקום הטקסט במרכז העמוק של הלב המוגדל */}
+                              <div className="relative z-10 flex flex-col items-center justify-center p-1 select-none text-center max-w-[80%] mt-[-6px] w-full">
+                                <span className="text-[11px] font-bold text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis w-full block text-center px-0.5 leading-tight">
+                                  {circle.name}
+                                </span>
+                                <span
+                                  className="text-xs font-extrabold text-slate-900 mt-0.5"
+                                  style={{ direction: "rtl" }}
+                                >
+                                  {circle.date}
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            // תוכן רגיל של עיגול עבור ימי הולדת
+                            <>
                               <span className="text-[11px] font-bold text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis w-full block text-center px-0.5 leading-tight">
                                 {circle.name}
                               </span>
-                              <span
-                                className="text-xs font-extrabold text-slate-900 mt-0.5"
-                                style={{ direction: "rtl" }}
-                              >
+                              <span className="text-xs font-extrabold text-slate-900 mt-0.5">
                                 {circle.date}
                               </span>
-                            </div>
-                          </div>
-                        ) : (
-                          // תוכן רגיל של עיגול עבור ימי הולדת
-                          <>
-                            <span className="text-[11px] font-bold text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis w-full block text-center px-0.5 leading-tight">
-                              {circle.name}
-                            </span>
-                            <span className="text-xs font-extrabold text-slate-900 mt-0.5">
-                              {circle.date}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    );
-                  })}
-                  {processedCalendar[month]?.length === 0 && (
-                    <span className="text-[10px] text-slate-400 italic mt-4">
-                      אין אירועים
-                    </span>
-                  )}
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {processedCalendar[month]?.length === 0 && (
+                      <span className="text-[10px] text-slate-400 italic mt-4">
+                        אין אירועים
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {showModal && (
