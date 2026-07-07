@@ -164,16 +164,81 @@ export default function CalendarBuilder() {
 
     monthsList.forEach((m) => (sortedCalendar[m] = []));
 
-    dataToProcess.forEach((row, rowIndex) => {
-      const name = row["שם / שמות"];
-      let date =
-        type === "gregorian"
-          ? row["יום בחודש (מספר)"]
-          : row["יום בחודש (אותיות)"];
-      const month = type === "gregorian" ? row["חודש לועזי"] : row["חודש עברי"];
-      const isAnniversary = row["סוג האירוע"] === "יום נישואין";
+    // רשימת כל הערכים המותרים בלוח העברי (מא' ועד ל') כולל גרשים ומרכאות כפי שמופיע בגיליון
+    const ALLOWED_HEBREW_DAYS = [
+      "א'", "ב'", "ג'", "ד'", "ה'", "ו'", "ז'", "ח'", "ט'", "י'",
+      "י\"א", "י\"ב", "י\"ג", "י\"ד", "ט\"ו", "ט\"ז", "י\"ז", "י\"ח", "י\"ט", "כ'",
+      "כ\"א", "כ\"ב", "כ\"ג", "כ\"ד", "כ\"ה", "כ\"ו", "כ\"ו", "כ\"ז", "כ\"ח", "כ\"ט", "ל'"
+    ];
 
-      if (!name || !date || !month || !sortedCalendar[month]) return;
+    // שלב 1: אימות נתונים מלא לכל השורות (בדיקת שדות חסרים וערכים שגויים)
+    for (let i = 0; i < dataToProcess.length; i++) {
+      const row = dataToProcess[i];
+      const name = row["שם / שמות"]?.trim();
+      const rawDate = type === "gregorian" ? row["יום בחודש (מספר)"] : row["יום בחודש (אותיות)"];
+      const date = rawDate?.trim();
+      const month = type === "gregorian" ? row["חודש לועזי"]?.trim() : row["חודש עברי"]?.trim();
+      const eventType = row["סוג האירוע"]?.trim();
+      
+      // מספר השורה בגוגל שיטס (שורה 1 היא הכותרת)
+      const sheetLineNumber = i + 2; 
+
+      // 1. בדיקת שדות חסרים (Missing fields)
+      if (!name || !date || !month || !eventType) {
+        alert(`❌ שגיאה בשורה מספר ${sheetLineNumber} בגיליון:\nאחד או יותר מהשדות הנדרשים ריק. אנא ודא שכל העמודות מלאות עבור שורה זו.`);
+        setProcessedCalendar({}); // עצירה מוחלטת ומניעת רינדור
+        setRawData([]);
+        return;
+      }
+
+      // 2. בדיקת ערך חודש שגוי (Wrong month value)
+      if (!monthsList.includes(month)) {
+        alert(`❌ שגיאה בשורה מספר ${sheetLineNumber} בגיליון:\nהחודש "${month}" אינו ערך תקין עבור לוח שנה מסוג ${type === "gregorian" ? "לועזי" : "עברי"}.\nהערכים המותרים הם: ${monthsList.join(", ")}`);
+        setProcessedCalendar({});
+        setRawData([]);
+        return;
+      }
+
+      // 3. בדיקת ערך סוג אירוע שגוי (Wrong event type value)
+      if (eventType !== "יום הולדת" && eventType !== "יום נישואין") {
+        alert(`❌ שגיאה בשורה מספר ${sheetLineNumber} בגיליון:\nסוג האירוע "${eventType}" אינו תקין.\nהערכים המותרים הם בדיוק: "יום הולדת" או "יום נישואין".`);
+        setProcessedCalendar({});
+        setRawData([]);
+        return;
+      }
+
+      // 4. בדיקת תקינות התאריך/יום בחודש (Wrong date value)
+      if (type === "gregorian") {
+        const dayNum = parseInt(date, 10);
+        if (isNaN(dayNum) || dayNum < 1 || dayNum > 31) {
+          alert(`❌ שגיאה בשורה מספר ${sheetLineNumber} בגיליון:\nהיום בחודש "${date}" אינו מספר תקין.\nבלוח לועזי, עליך להזין מספר בין 1 ל-31.`);
+          setProcessedCalendar({});
+          setRawData([]);
+          return;
+        }
+      } else {
+        // נרמול קטן של התווים (הפיכת גרשים ומרכאות מסוגים שונים לסטנדרטיים) כדי להתאים למערך
+        const normalizedDate = date
+          .replace(/[\u201D\u201C”„“]/g, '"')
+          .replace(/[\u2018\u2019’׳]/g, "'")
+          .replace(/״/g, '"');
+
+        // בדיקה קפדנית האם הערך המדובר קיים במערך המותרים
+        if (!ALLOWED_HEBREW_DAYS.includes(normalizedDate)) {
+          alert(`❌ שגיאה בשורה מספר ${sheetLineNumber} בגיליון:\nהיום בחודש "${date}" אינו תקין עבור לוח עברי.\nהערך חייב להיות אחד מהערכים החוקיים ברשימה (מ- א' עד ל').`);
+          setProcessedCalendar({});
+          setRawData([]);
+          return;
+        }
+      }
+    }
+
+    // שלב 2: עיבוד הנתונים בפועל (מתבצע רק אם כל השורות נמצאו תקינות לחלוטין)
+    dataToProcess.forEach((row, rowIndex) => {
+      const name = row["שם / שמות"].trim();
+      let date = type === "gregorian" ? row["יום בחודש (מספר)"]!.trim() : row["יום בחודש (אותיות)"]!.trim();
+      const month = type === "gregorian" ? row["חודש לועזי"]!.trim() : row["חודש עברי"]!.trim();
+      const isAnniversary = row["סוג האירוע"].trim() === "יום נישואין";
 
       date = date
         .replace(/[\u201D\u201C\u2013\u2014”„“]/g, '"')
