@@ -131,7 +131,7 @@ export default function CalendarBuilder() {
   const [sheetUrl, setSheetUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [calendarType, setCalendarType] = useState<"gregorian" | "hebrew">(
-    "gregorian",
+    "hebrew",
   );
   const [rawData, setRawData] = useState<RawEvent[]>([]);
   const [processedCalendar, setProcessedCalendar] = useState<
@@ -559,9 +559,19 @@ export default function CalendarBuilder() {
       className="p-4 max-w-full mx-auto text-right"
       style={{ direction: "rtl", fontFamily: selectedFont }}
     >
-      <h1 className="text-3xl font-bold mb-6 text-slate-800 px-4">
-        מחולל לוח תאריכים משפחתי
-      </h1>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 px-4">
+        <h1 className="text-3xl font-bold text-slate-800">
+          מחולל לוח תאריכים משפחתי
+        </h1>
+        <a
+          href="https://docs.google.com/spreadsheets/d/1rbCMUSLySLr5LoaMO_TSBYJIZjKVlTagOCf_bRUmOqc/copy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 font-bold py-2.5 px-5 rounded-lg transition text-sm flex items-center gap-2 shadow-sm"
+        >
+          🟢 לחץ כאן ליצירת קובץ דוגמה (Google Sheets)
+        </a>
+      </div>
 
       <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-6 flex flex-wrap gap-4 items-end mx-4">
         <div className="flex-1 min-w-[300px]">
