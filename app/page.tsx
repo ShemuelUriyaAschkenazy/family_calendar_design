@@ -94,7 +94,6 @@ export default function CalendarBuilder() {
   ]);
   const [useFourthColor, setUseFourthColor] = useState<boolean>(false);
   
-  // עדכון צבע ברירת המחדל של ימי הנישואין לדרישתך
   const [anniversaryColor, setAnniversaryColor] = useState<string>("#e8b6c7");
   const [selectedDesign, setSelectedDesign] = useState<string>("");
 
@@ -102,7 +101,8 @@ export default function CalendarBuilder() {
   const [tableDataString, setTableDataString] = useState("");
   const [colorInstructions, setColorInstructions] = useState<ColorGroupInstruction[]>([]);
 
-  const circleSize = 96;
+  // Tuned layout metrics for high density desktop visibility
+  const circleSize = 84; 
 
   const processData = (
     dataToProcess: RawEvent[],
@@ -363,7 +363,7 @@ export default function CalendarBuilder() {
       const canvas = await html2canvas(calendarElement, {
         useCORS: true,
         scale: 2,
-        backgroundColor: "#E8FAFF", // תואם לצבע הרקע החדש והנקי שנבחר
+        backgroundColor: "#E8FAFF",
       });
       setPreviewImage(canvas.toDataURL("image/png"));
     } catch (error) {
@@ -407,21 +407,27 @@ export default function CalendarBuilder() {
     }
   };
 
-return (
+  return (
     <div 
       className="bg-[#E8FAFF] min-h-screen w-full text-right font-sans antialiased text-slate-800 p-6" 
       style={{ direction: "rtl" }}
     >
-      {/* עטיפה פנימית - ממרכזת ומגבילה את רוחב התוכן בצורה נקייה */}
-      <div className="max-w-7xl mx-auto">
+      <div className="w-full max-w-[1600px] mx-auto">
         
-        {/* Header */}
+        {/* Header with New Logo */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8 pb-6 border-b border-slate-200/50 px-4">
-          <div>
-            <h1 className="text-3xl font-black text-[#7c1c3a] tracking-tight mb-1">
-              מחולל לוח תאריכים משפחתי
-            </h1>
-            <p className="text-xs font-semibold text-slate-400">סטודיו חרות בלב • עיצוב נקי, מאוורר ומדויק</p>
+          <div className="flex items-center gap-4">
+            <img 
+              src="/logo.webp" 
+              alt="חרות בלב" 
+              className="h-16 w-auto object-contain rounded-xl"
+            />
+            <div>
+              <h1 className="text-3xl font-black text-[#7c1c3a] tracking-tight mb-1">
+                מחולל לוח תאריכים משפחתי
+              </h1>
+              <p className="text-xs font-semibold text-slate-400">סטודיו חרות בלב • עיצוב נקי, מאוורר ומדויק</p>
+            </div>
           </div>
           <a
             href="https://docs.google.com/spreadsheets/d/1rbCMUSLySLr5LoaMO_TSBYJIZjKVlTagOCf_bRUmOqc/copy"
@@ -664,8 +670,8 @@ return (
               </div>
             )}
 
-            {/* Table Preview Grid */}
-            <div className="px-4">
+            {/* Flat Single-Row Layout (No Scroll, No Wrap) */}
+            <div className="px-4 overflow-hidden">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                 <h2 className="text-xl font-bold text-slate-700">תצוגה מקדימה של הלוח</h2>
                 <button
@@ -676,21 +682,21 @@ return (
                 </button>
               </div>
 
+              {/* Exact 12-column grid to hold all months tightly in one elegant view block */}
               <div
                 id="calendar-preview-area"
-                className="flex gap-3 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm overflow-x-auto scrollbar-thin pb-8 justify-start"
+                className="grid grid-cols-12 gap-1 bg-white p-2 rounded-2xl border border-slate-200 shadow-sm pb-6 w-full"
               >
                 {activeMonths.map((month) => (
                   <div
                     key={month}
-                    style={{ minWidth: `${circleSize + 14}px`, width: `${circleSize + 14}px` }}
-                    className="bg-[#f8fafc] p-2 rounded-xl border border-slate-100 flex flex-col items-center min-h-[320px] shrink-0 shadow-sm"
+                    className="bg-[#f8fafc] p-1.5 rounded-xl border border-slate-100 flex flex-col items-center min-h-[360px] shadow-sm overflow-hidden"
                   >
-                    <div className="font-bold text-xs text-slate-600 border-b border-slate-200/60 w-full text-center pb-2 mb-3 truncate tracking-wide">
+                    <div className="font-bold text-[11px] text-slate-600 border-b border-slate-200/60 w-full text-center pb-1.5 mb-2 truncate tracking-tight">
                       {month}
                     </div>
 
-                    <div className="flex flex-col gap-3 w-full items-center">
+                    <div className="flex flex-col gap-2 w-full items-center">
                       {processedCalendar[month]?.map((circle) => {
                         const isAnniversary = circle.type === "anniversary";
 
@@ -704,7 +710,7 @@ return (
                               backgroundColor: isAnniversary ? "transparent" : circle.color,
                             }}
                             className={`relative flex flex-col justify-center items-center text-center cursor-pointer select-none transition-all hover:scale-105 ${
-                              isAnniversary ? "" : "rounded-full shadow-sm border border-slate-200/60 p-1.5"
+                              isAnniversary ? "" : "rounded-full shadow-sm border border-slate-200/60 p-1"
                             }`}
                           >
                             {isAnniversary ? (
@@ -716,21 +722,21 @@ return (
                                 >
                                   <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                                 </svg>
-                                <div className="relative z-10 flex flex-col items-center justify-center p-1 select-none text-center max-w-[82%] mt-[-4px] w-full">
-                                  <span className="text-[11px] font-bold text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis w-full block text-center px-0.5 leading-tight">
+                                <div className="relative z-10 flex flex-col items-center justify-center p-0.5 select-none text-center max-w-[85%] mt-[-4px] w-full">
+                                  <span className="text-[10px] font-bold text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis w-full block text-center px-0.5 leading-tight">
                                     {circle.name}
                                   </span>
-                                  <span className="text-xs font-extrabold text-slate-900 mt-0.5">
+                                  <span className="text-[11px] font-extrabold text-slate-900 mt-0.5">
                                     {circle.date}
                                   </span>
                                 </div>
                               </div>
                             ) : (
                               <>
-                                <span className="text-[11px] font-bold text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis w-full block text-center px-0.5 leading-tight">
+                                <span className="text-[10px] font-bold text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis w-full block text-center px-0.5 leading-tight">
                                   {circle.name}
                                 </span>
-                                <span className="text-xs font-extrabold text-slate-900 mt-0.5">
+                                <span className="text-[11px] font-extrabold text-slate-900 mt-0.5">
                                   {circle.date}
                                 </span>
                               </>
@@ -739,7 +745,7 @@ return (
                         );
                       })}
                       {processedCalendar[month]?.length === 0 && (
-                        <span className="text-[10px] text-slate-400 italic mt-6">אין אירועים</span>
+                        <span className="text-[9px] text-slate-400 italic mt-6">אין אירועים</span>
                       )}
                     </div>
                   </div>
