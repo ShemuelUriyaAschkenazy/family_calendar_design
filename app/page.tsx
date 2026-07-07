@@ -30,12 +30,32 @@ interface ColorGroupInstruction {
 }
 
 const GREGORIAN_MONTHS = [
-  "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני",
-  "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"
+  "ינואר",
+  "פברואר",
+  "מרץ",
+  "אפריל",
+  "מאי",
+  "יוני",
+  "יולי",
+  "אוגוסט",
+  "ספטמבר",
+  "אוקטובר",
+  "נובמבר",
+  "דצמבר",
 ];
 const HEBREW_MONTHS = [
-  "תשרי", "חשוון", "כסלו", "טבת", "שבט", "אדר",
-  "ניסן", "אייר", "סיון", "תמוז", "אב", "אלול"
+  "תשרי",
+  "חשוון",
+  "כסלו",
+  "טבת",
+  "שבט",
+  "אדר",
+  "ניסן",
+  "אייר",
+  "סיון",
+  "תמוז",
+  "אב",
+  "אלול",
 ];
 
 const AVAILABLE_DESIGNS = [
@@ -61,9 +81,28 @@ function hebrewToNumber(str: string): number {
     .replace(/["']/g, "")
     .trim();
   const gimatriaMap: Record<string, number> = {
-    א: 1, ב: 2, ג: 3, ד: 4, ה: 5, ו: 6, ז: 7, ח: 8, ט: 9, י: 10,
-    כ: 20, ל: 30, מ: 40, נ: 50, ס: 60, ע: 70, פ: 80, צ: 90, ק: 100,
-    ר: 200, ש: 300, ת: 400,
+    א: 1,
+    ב: 2,
+    ג: 3,
+    ד: 4,
+    ה: 5,
+    ו: 6,
+    ז: 7,
+    ח: 8,
+    ט: 9,
+    י: 10,
+    כ: 20,
+    ל: 30,
+    מ: 40,
+    נ: 50,
+    ס: 60,
+    ע: 70,
+    פ: 80,
+    צ: 90,
+    ק: 100,
+    ר: 200,
+    ש: 300,
+    ת: 400,
   };
 
   if (cleanStr === "טו") return 15;
@@ -80,9 +119,13 @@ function hebrewToNumber(str: string): number {
 export default function CalendarBuilder() {
   const [sheetUrl, setSheetUrl] = useState("");
   const [loading, setLoading] = useState(false);
-  const [calendarType, setCalendarType] = useState<"gregorian" | "hebrew">("hebrew");
+  const [calendarType, setCalendarType] = useState<"gregorian" | "hebrew">(
+    "hebrew",
+  );
   const [rawData, setRawData] = useState<RawEvent[]>([]);
-  const [processedCalendar, setProcessedCalendar] = useState<Record<string, ProcessedCircle[]>>({});
+  const [processedCalendar, setProcessedCalendar] = useState<
+    Record<string, ProcessedCircle[]>
+  >({});
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -90,19 +133,24 @@ export default function CalendarBuilder() {
   const [familyName, setFamilyName] = useState("");
 
   const [birthdayColors, setBirthdayColors] = useState<string[]>([
-    "#FFFFFF", "#F4EAE1", "#E6DFD3", "#D8CFC4"
+    "#FFFFFF",
+    "#F4EAE1",
+    "#E6DFD3",
+    "#D8CFC4",
   ]);
   const [useFourthColor, setUseFourthColor] = useState<boolean>(false);
-  
+
   const [anniversaryColor, setAnniversaryColor] = useState<string>("#e8b6c7");
   const [selectedDesign, setSelectedDesign] = useState<string>("");
 
   const [showModal, setShowModal] = useState(false);
   const [tableDataString, setTableDataString] = useState("");
-  const [colorInstructions, setColorInstructions] = useState<ColorGroupInstruction[]>([]);
+  const [colorInstructions, setColorInstructions] = useState<
+    ColorGroupInstruction[]
+  >([]);
 
   // Tuned layout metrics for high density desktop visibility
-  const circleSize = 84; 
+  const circleSize = 84;
 
   const processData = (
     dataToProcess: RawEvent[],
@@ -118,7 +166,10 @@ export default function CalendarBuilder() {
 
     dataToProcess.forEach((row, rowIndex) => {
       const name = row["שם / שמות"];
-      let date = type === "gregorian" ? row["יום בחודש (מספר)"] : row["יום בחודש (אותיות)"];
+      let date =
+        type === "gregorian"
+          ? row["יום בחודש (מספר)"]
+          : row["יום בחודש (אותיות)"];
       const month = type === "gregorian" ? row["חודש לועזי"] : row["חודש עברי"];
       const isAnniversary = row["סוג האירוע"] === "יום נישואין";
 
@@ -145,18 +196,24 @@ export default function CalendarBuilder() {
 
     monthsList.forEach((month) => {
       sortedCalendar[month].sort((a, b) => {
-        const numA = type === "gregorian" ? parseInt(a.date, 10) : hebrewToNumber(a.date);
-        const numB = type === "gregorian" ? parseInt(b.date, 10) : hebrewToNumber(b.date);
+        const numA =
+          type === "gregorian" ? parseInt(a.date, 10) : hebrewToNumber(a.date);
+        const numB =
+          type === "gregorian" ? parseInt(b.date, 10) : hebrewToNumber(b.date);
         return numA - numB;
       });
     });
 
-    const activeBirthdayColors = enableFourth ? currentColors : currentColors.slice(0, 3);
+    const activeBirthdayColors = enableFourth
+      ? currentColors
+      : currentColors.slice(0, 3);
 
     monthsList.forEach((month, monthIdx) => {
       const currentMonthEvents = sortedCalendar[month];
       const colorUsageInMonth: Record<string, number> = {};
-      activeBirthdayColors.forEach((c) => { colorUsageInMonth[c] = 0; });
+      activeBirthdayColors.forEach((c) => {
+        colorUsageInMonth[c] = 0;
+      });
 
       currentMonthEvents.forEach((event, idx) => {
         if (event.type === "anniversary") {
@@ -164,7 +221,8 @@ export default function CalendarBuilder() {
           return;
         }
 
-        const sameMonthPrevColor = idx > 0 ? currentMonthEvents[idx - 1].color : null;
+        const sameMonthPrevColor =
+          idx > 0 ? currentMonthEvents[idx - 1].color : null;
         let neighborMonthPrevColor: string | null = null;
         if (monthIdx > 0) {
           const prevMonthName = monthsList[monthIdx - 1];
@@ -175,17 +233,25 @@ export default function CalendarBuilder() {
         }
 
         let allowedColors = activeBirthdayColors.filter(
-          (c) => c !== sameMonthPrevColor && c !== neighborMonthPrevColor
+          (c) => c !== sameMonthPrevColor && c !== neighborMonthPrevColor,
         );
 
-        if (allowedColors.length === 0) { allowedColors = activeBirthdayColors; }
+        if (allowedColors.length === 0) {
+          allowedColors = activeBirthdayColors;
+        }
 
-        const minUsage = Math.min(...allowedColors.map((c) => colorUsageInMonth[c] || 0));
-        const bestColorOptions = allowedColors.filter((c) => (colorUsageInMonth[c] || 0) === minUsage);
-        const chosenColor = bestColorOptions[Math.floor(Math.random() * bestColorOptions.length)];
+        const minUsage = Math.min(
+          ...allowedColors.map((c) => colorUsageInMonth[c] || 0),
+        );
+        const bestColorOptions = allowedColors.filter(
+          (c) => (colorUsageInMonth[c] || 0) === minUsage,
+        );
+        const chosenColor =
+          bestColorOptions[Math.floor(Math.random() * bestColorOptions.length)];
 
         event.color = chosenColor;
-        colorUsageInMonth[chosenColor] = (colorUsageInMonth[chosenColor] || 0) + 1;
+        colorUsageInMonth[chosenColor] =
+          (colorUsageInMonth[chosenColor] || 0) + 1;
       });
     });
 
@@ -235,9 +301,16 @@ export default function CalendarBuilder() {
       if (result.error) {
         alert(result.error);
       } else {
-        const selectedData = calendarType === "gregorian" ? result.gregorian : result.hebrew;
+        const selectedData =
+          calendarType === "gregorian" ? result.gregorian : result.hebrew;
         setRawData(selectedData);
-        processData(selectedData, calendarType, birthdayColors, anniversaryColor, useFourthColor);
+        processData(
+          selectedData,
+          calendarType,
+          birthdayColors,
+          anniversaryColor,
+          useFourthColor,
+        );
       }
     } catch (err) {
       alert("שגיאה בתקשורת עם השרת");
@@ -277,11 +350,19 @@ export default function CalendarBuilder() {
     setProcessedCalendar(updatedCalendar);
   };
 
-  const handleToggleFourthColor = (checked: boolean) => { setUseFourthColor(checked); };
+  const handleToggleFourthColor = (checked: boolean) => {
+    setUseFourthColor(checked);
+  };
 
   const handleRegenerateColors = () => {
     if (rawData.length === 0) return alert("נא לטעון נתונים מהגיליון תחילה");
-    processData(rawData, calendarType, birthdayColors, anniversaryColor, useFourthColor);
+    processData(
+      rawData,
+      calendarType,
+      birthdayColors,
+      anniversaryColor,
+      useFourthColor,
+    );
   };
 
   const handleSingleCircleColorChange = (month: string, id: string) => {
@@ -289,7 +370,9 @@ export default function CalendarBuilder() {
     const circle = updated[month].find((c) => c.id === id);
     if (!circle || circle.type === "anniversary") return;
 
-    const activeColors = useFourthColor ? birthdayColors : birthdayColors.slice(0, 3);
+    const activeColors = useFourthColor
+      ? birthdayColors
+      : birthdayColors.slice(0, 3);
     const currentColorIndex = activeColors.indexOf(circle.color);
     const nextColorIndex = (currentColorIndex + 1) % activeColors.length;
     circle.color = activeColors[nextColorIndex];
@@ -298,14 +381,16 @@ export default function CalendarBuilder() {
 
   const handlePrepareDataForCanva = () => {
     const confirmEmail = confirm(
-      "📢 תזכורת חשובה!\nהאם שלחת לעצמך צילום מסך של הלוח והצבעים הנוכחיים למייל?\n\nלחץ 'אישור' כדי להמשיך להעתקה לקנבה, או 'ביטול' כדי לשלוח מייל קודם."
+      "📢 תזכורת חשובה!\nהאם שלחת לעצמך צילום מסך של הלוח והצבעים הנוכחיים למייל?\n\nלחץ 'אישור' כדי להמשיך להעתקה לקנבה, או 'ביטול' כדי לשלוח מייל קודם.",
     );
 
     if (!confirmEmail) return;
     const allEvents: ProcessedCircle[] = [];
 
     Object.keys(processedCalendar).forEach((month) => {
-      processedCalendar[month].forEach((event) => { allEvents.push(event); });
+      processedCalendar[month].forEach((event) => {
+        allEvents.push(event);
+      });
     });
 
     if (allEvents.length === 0) return alert("אין נתונים לייצוא");
@@ -315,7 +400,10 @@ export default function CalendarBuilder() {
       anniversaryColor,
     ];
 
-    allEvents.sort((a, b) => targetColorOrder.indexOf(a.color) - targetColorOrder.indexOf(b.color));
+    allEvents.sort(
+      (a, b) =>
+        targetColorOrder.indexOf(a.color) - targetColorOrder.indexOf(b.color),
+    );
 
     const rows = allEvents.map((event) => `${event.name}\t${event.date}`);
 
@@ -347,10 +435,13 @@ export default function CalendarBuilder() {
 
   const handleCopyToClipboard = () => {
     navigator.clipboard.writeText(tableDataString);
-    alert("השמות והתאריכים הועתקו כשהם ממוינים לפי צבעים! כעת בצע הדבקה בקנבה.");
+    alert(
+      "השמות והתאריכים הועתקו כשהם ממוינים לפי צבעים! כעת בצע הדבקה בקנבה.",
+    );
   };
 
-  const activeMonths = calendarType === "gregorian" ? GREGORIAN_MONTHS : HEBREW_MONTHS;
+  const activeMonths =
+    calendarType === "gregorian" ? GREGORIAN_MONTHS : HEBREW_MONTHS;
 
   const handleGeneratePreview = async () => {
     const calendarElement = document.getElementById("calendar-preview-area");
@@ -376,7 +467,8 @@ export default function CalendarBuilder() {
 
   const handleSendEmail = async () => {
     if (!emailInput) return alert("נא להזין כתובת אימייל תקנית");
-    if (!familyName.trim()) return alert("נא להזין את שם המשפחה עבורה מיועד הלוח");
+    if (!familyName.trim())
+      return alert("נא להזין את שם המשפחה עבורה מיועד הלוח");
     if (!previewImage) return alert("נא לייצר תצוגה מקדימה תחילה");
 
     setIsSendingEmail(true);
@@ -408,25 +500,26 @@ export default function CalendarBuilder() {
   };
 
   return (
-    <div 
-      className="bg-[#E8FAFF] min-h-screen w-full text-right font-sans antialiased text-slate-800 p-6" 
+    <div
+      className="bg-[#E8FAFF] min-h-screen w-full text-right font-sans antialiased text-slate-800 p-6"
       style={{ direction: "rtl" }}
     >
       <div className="w-full max-w-[1600px] mx-auto">
-        
         {/* Header with New Logo */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8 pb-6 border-b border-slate-200/50 px-4">
           <div className="flex items-center gap-4">
-            <img 
-              src="/logo.webp" 
-              alt="חרות בלב" 
+            <img
+              src="/logo.webp"
+              alt="חרות בלב"
               className="h-16 w-auto object-contain rounded-xl"
             />
             <div>
               <h1 className="text-3xl font-black text-[#7c1c3a] tracking-tight mb-1">
                 מחולל לוח תאריכים משפחתי
               </h1>
-              <p className="text-xs font-semibold text-slate-400">סטודיו חרות בלב • עיצוב נקי, מאוורר ומדויק</p>
+              <p className="text-xs font-semibold text-slate-400">
+                סטודיו חרות בלב • עיצוב נקי, מאוורר ומדויק
+              </p>
             </div>
           </div>
           <a
@@ -468,8 +561,8 @@ export default function CalendarBuilder() {
                 setRawData([]);
               }}
             >
-              <option value="gregorian">לוח שנה לועזי</option>
               <option value="hebrew">לוח שנה עברי</option>
+              <option value="gregorian">לוח שנה לועזי</option>
             </select>
           </div>
 
@@ -495,7 +588,9 @@ export default function CalendarBuilder() {
             >
               <option value="">-- ללא עיצוב / התאמה אישית --</option>
               {AVAILABLE_DESIGNS.map((design) => (
-                <option key={design.id} value={design.id}>{design.name}</option>
+                <option key={design.id} value={design.id}>
+                  {design.name}
+                </option>
               ))}
             </select>
           </div>
@@ -506,7 +601,10 @@ export default function CalendarBuilder() {
                 תצוגה מקדימה של הבאנר העליון המתוכנן
               </div>
               <img
-                src={AVAILABLE_DESIGNS.find((d) => d.id === selectedDesign)?.imagePath}
+                src={
+                  AVAILABLE_DESIGNS.find((d) => d.id === selectedDesign)
+                    ?.imagePath
+                }
                 alt="Design Preview"
                 className="w-full h-36 object-cover"
               />
@@ -516,7 +614,6 @@ export default function CalendarBuilder() {
 
         {rawData.length > 0 && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 mx-4">
-            
             {/* Colors configuration panel */}
             <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200/50 shadow-sm flex flex-col justify-between">
               <div>
@@ -527,12 +624,16 @@ export default function CalendarBuilder() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="md:col-span-2 md:border-l md:border-slate-100 md:pl-6">
                     <div className="flex justify-between items-center mb-4">
-                      <span className="text-xs font-bold text-slate-400 tracking-wider">🎂 צבעי ימי הולדת</span>
+                      <span className="text-xs font-bold text-slate-400 tracking-wider">
+                        🎂 צבעי ימי הולדת
+                      </span>
                       <label className="flex items-center gap-2 text-xs text-[#7c1c3a] font-bold cursor-pointer select-none">
                         <input
                           type="checkbox"
                           checked={useFourthColor}
-                          onChange={(e) => handleToggleFourthColor(e.target.checked)}
+                          onChange={(e) =>
+                            handleToggleFourthColor(e.target.checked)
+                          }
                           className="rounded border-slate-300 text-[#7c1c3a] focus:ring-[#7c1c3a] w-4 h-4"
                         />
                         צבע רביעי
@@ -543,14 +644,21 @@ export default function CalendarBuilder() {
                       {birthdayColors.map((color, idx) => {
                         if (idx === 3 && !useFourthColor) return null;
                         return (
-                          <div key={idx} className="flex flex-col items-center gap-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                          <div
+                            key={idx}
+                            className="flex flex-col items-center gap-2 bg-slate-50 p-3 rounded-xl border border-slate-100"
+                          >
                             <input
                               type="color"
                               value={color}
-                              onChange={(e) => handleBirthdayColorChange(idx, e.target.value)}
+                              onChange={(e) =>
+                                handleBirthdayColorChange(idx, e.target.value)
+                              }
                               className="w-11 h-11 rounded-lg cursor-pointer border border-slate-200 shadow-sm"
                             />
-                            <span className="text-[10px] font-bold text-slate-400">צבע {idx + 1}</span>
+                            <span className="text-[10px] font-bold text-slate-400">
+                              צבע {idx + 1}
+                            </span>
                           </div>
                         );
                       })}
@@ -559,7 +667,9 @@ export default function CalendarBuilder() {
 
                   <div className="flex flex-col justify-between">
                     <div>
-                      <span className="text-xs font-bold text-slate-400 tracking-wider block mb-2">💖 ימי נישואין</span>
+                      <span className="text-xs font-bold text-slate-400 tracking-wider block mb-2">
+                        💖 ימי נישואין
+                      </span>
                       <p className="text-[11px] text-slate-400 mb-4 leading-relaxed">
                         האירועים יקבלו את צבע הרקע וצורת הלב הזו בתצוגה המקדימה.
                       </p>
@@ -567,12 +677,18 @@ export default function CalendarBuilder() {
                         <input
                           type="color"
                           value={anniversaryColor}
-                          onChange={(e) => handleAnniversaryColorChange(e.target.value)}
+                          onChange={(e) =>
+                            handleAnniversaryColorChange(e.target.value)
+                          }
                           className="w-11 h-11 rounded-lg cursor-pointer border border-slate-200 shadow-sm"
                         />
                         <div className="flex flex-col">
-                          <span className="text-xs font-bold text-slate-700">צבע הלב</span>
-                          <span className="text-[10px] text-slate-400 font-mono mt-0.5 uppercase">{anniversaryColor}</span>
+                          <span className="text-xs font-bold text-slate-700">
+                            צבע הלב
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono mt-0.5 uppercase">
+                            {anniversaryColor}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -599,7 +715,9 @@ export default function CalendarBuilder() {
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-400 mb-1.5">שם המשפחה עבור הלוח:</label>
+                    <label className="block text-[11px] font-bold text-slate-400 mb-1.5">
+                      שם המשפחה עבור הלוח:
+                    </label>
                     <input
                       type="text"
                       placeholder="למשל: משפחת ישראלי"
@@ -611,7 +729,9 @@ export default function CalendarBuilder() {
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-400 mb-1.5">כתובת אימייל ליעד:</label>
+                    <label className="block text-[11px] font-bold text-slate-400 mb-1.5">
+                      כתובת אימייל ליעד:
+                    </label>
                     <input
                       type="email"
                       value={emailInput}
@@ -630,7 +750,9 @@ export default function CalendarBuilder() {
                   className="bg-slate-800 text-white font-bold py-2.5 px-4 rounded-xl hover:bg-slate-900 transition text-xs flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
                 >
                   <span>📸</span>
-                  <span>{isGeneratingPreview ? "מייצר..." : "צור תצוגה מקדימה"}</span>
+                  <span>
+                    {isGeneratingPreview ? "מייצר..." : "צור תצוגה מקדימה"}
+                  </span>
                 </button>
 
                 <button
@@ -662,10 +784,16 @@ export default function CalendarBuilder() {
                   </button>
                 </div>
                 <p className="text-xs text-slate-500 mb-4">
-                  זהו בדיוק הקובץ שיישלח כקובץ מצורף (Attachment). ודא שכל השמות והתאריכים מופיעים תקין, ולאחר מכן לחץ על <b>"2. שלח את מה שמוצג"</b>.
+                  זהו בדיוק הקובץ שיישלח כקובץ מצורף (Attachment). ודא שכל השמות
+                  והתאריכים מופיעים תקין, ולאחר מכן לחץ על{" "}
+                  <b>"2. שלח את מה שמוצג"</b>.
                 </p>
                 <div className="border border-slate-100 rounded-xl overflow-hidden max-h-64 overflow-y-auto bg-white shadow-inner">
-                  <img src={previewImage} alt="Email Attachment Preview" className="w-full h-auto object-contain" />
+                  <img
+                    src={previewImage}
+                    alt="Email Attachment Preview"
+                    className="w-full h-auto object-contain"
+                  />
                 </div>
               </div>
             )}
@@ -673,7 +801,9 @@ export default function CalendarBuilder() {
             {/* Flat Single-Row Layout (No Scroll, No Wrap) */}
             <div className="px-4 overflow-hidden">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                <h2 className="text-xl font-bold text-slate-700">תצוגה מקדימה של הלוח</h2>
+                <h2 className="text-xl font-bold text-slate-700">
+                  תצוגה מקדימה של הלוח
+                </h2>
                 <button
                   onClick={handlePrepareDataForCanva}
                   className="bg-emerald-600 text-white font-bold py-3 px-8 rounded-xl hover:bg-emerald-700 shadow-sm transition text-md w-full sm:w-auto"
@@ -703,14 +833,20 @@ export default function CalendarBuilder() {
                         return (
                           <div
                             key={circle.id}
-                            onClick={() => handleSingleCircleColorChange(month, circle.id)}
+                            onClick={() =>
+                              handleSingleCircleColorChange(month, circle.id)
+                            }
                             style={{
                               width: `${circleSize}px`,
                               height: `${circleSize}px`,
-                              backgroundColor: isAnniversary ? "transparent" : circle.color,
+                              backgroundColor: isAnniversary
+                                ? "transparent"
+                                : circle.color,
                             }}
                             className={`relative flex flex-col justify-center items-center text-center cursor-pointer select-none transition-all hover:scale-105 ${
-                              isAnniversary ? "" : "rounded-full shadow-sm border border-slate-200/60 p-1"
+                              isAnniversary
+                                ? ""
+                                : "rounded-full shadow-sm border border-slate-200/60 p-1"
                             }`}
                           >
                             {isAnniversary ? (
@@ -718,7 +854,11 @@ export default function CalendarBuilder() {
                                 <svg
                                   viewBox="1.75 3 20.5 18.35"
                                   className="absolute inset-0 w-full h-full"
-                                  style={{ fill: circle.color, width: "100%", height: "100%" }}
+                                  style={{
+                                    fill: circle.color,
+                                    width: "100%",
+                                    height: "100%",
+                                  }}
                                 >
                                   <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                                 </svg>
@@ -745,7 +885,9 @@ export default function CalendarBuilder() {
                         );
                       })}
                       {processedCalendar[month]?.length === 0 && (
-                        <span className="text-[9px] text-slate-400 italic mt-6">אין אירועים</span>
+                        <span className="text-[9px] text-slate-400 italic mt-6">
+                          אין אירועים
+                        </span>
                       )}
                     </div>
                   </div>
@@ -763,7 +905,9 @@ export default function CalendarBuilder() {
                 העתקת הנתונים ומדריך צביעה לקנבה
               </h3>
               <p className="text-xs text-slate-400 mb-5 leading-relaxed">
-                הנתונים יסודרו אוטומטית לפי קבוצות צבעים. לאחר שתדביק אותם בקנבה, השתמש במדריך הבא כדי לדעת איזה דפים (כרטיסים) לצבוע בכל צבע.
+                הנתונים יסודרו אוטומטית לפי קבוצות צבעים. לאחר שתדביק אותם
+                בקנבה, השתמש במדריך הבא כדי לדעת איזה דפים (כרטיסים) לצבוע בכל
+                צבע.
               </p>
 
               <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 mb-6 text-sm">
@@ -772,16 +916,24 @@ export default function CalendarBuilder() {
                 </h4>
                 <div className="flex flex-col gap-2">
                   {colorInstructions.map((inst, index) => (
-                    <div key={index} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200/60 shadow-sm">
+                    <div
+                      key={index}
+                      className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200/60 shadow-sm"
+                    >
                       <span className="font-bold text-slate-600 flex items-center gap-2">
                         <span
                           className="w-4 h-4 rounded-full border border-slate-300 shadow-inner"
                           style={{ backgroundColor: inst.color }}
                         ></span>
-                        {inst.colorName} <span className="font-mono text-xs font-normal text-slate-400">({inst.color})</span>
+                        {inst.colorName}{" "}
+                        <span className="font-mono text-xs font-normal text-slate-400">
+                          ({inst.color})
+                        </span>
                       </span>
                       <span className="text-xs bg-[#7c1c3a] text-white font-mono px-2.5 py-1 rounded-lg font-bold">
-                        {inst.startIdx === inst.endIdx ? `דף ${inst.startIdx}` : `דפים ${inst.startIdx} עד ${inst.endIdx}`}
+                        {inst.startIdx === inst.endIdx
+                          ? `דף ${inst.startIdx}`
+                          : `דפים ${inst.startIdx} עד ${inst.endIdx}`}
                       </span>
                     </div>
                   ))}
@@ -805,8 +957,7 @@ export default function CalendarBuilder() {
             </div>
           </div>
         )}
-
       </div>
     </div>
   );
-} 
+}
