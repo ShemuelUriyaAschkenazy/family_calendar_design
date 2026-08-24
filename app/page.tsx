@@ -588,7 +588,7 @@ export default function CalendarBuilder() {
             </div>
           </div>
           <a
-            href="https://docs.google.com/spreadsheets/d/1rbCMUSLySLr5LoaMO_TSBYJIZjKVlTagOCf_bRUmOqc/copy"
+            href="https://docs.google.com/spreadsheets/d/1rbCMUSLySLr5LoaMO_TSBYJIZjKVlTagOCf_bRUmOqc/template/preview"
             target="_blank"
             rel="noopener noreferrer"
             className="bg-white/80 backdrop-blur-sm text-slate-600 hover:bg-white border border-slate-200 font-bold py-2.5 px-5 rounded-xl transition text-xs flex items-center gap-2 shadow-sm"
