@@ -571,6 +571,9 @@ export default function CalendarBuilder() {
           imageBase64: previewImage,
           userEmail: emailInput,
           familyName: familyName.trim(),
+          birthdayColors,
+          anniversaryColor,
+          useFourthColor,
         }),
       });
 
