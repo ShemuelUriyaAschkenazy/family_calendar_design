@@ -73,6 +73,13 @@ const AVAILABLE_DESIGNS = [
     colors: ["#bfafa5", "#f1dd99", "#f8bd8d", "#FFFFFF"],
     useFourth: true,
   },
+  {
+    id: "design_3",
+    name: "עיצוב 3 (4 צבעים פסטל)",
+    imagePath: "/designs/design_3.jpeg",
+    colors: ["#fcf9da", "#dcc9d3", "#d0e3d5", "#fbc8e0"],
+    useFourth: true
+  }
 ];
 
 function hebrewToNumber(str: string): number {
@@ -179,9 +186,9 @@ export default function CalendarBuilder() {
       const date = rawDate?.trim();
       const month = type === "gregorian" ? row["חודש לועזי"]?.trim() : row["חודש עברי"]?.trim();
       const eventType = row["סוג האירוע"]?.trim();
-      
+
       // מספר השורה בגוגל שיטס (שורה 1 היא הכותרת)
-      const sheetLineNumber = i + 2; 
+      const sheetLineNumber = i + 2;
 
       // 1. בדיקת שדות חסרים (Missing fields)
       if (!name || !date || !month || !eventType) {
@@ -908,11 +915,10 @@ export default function CalendarBuilder() {
                                 ? "transparent"
                                 : circle.color,
                             }}
-                            className={`relative flex flex-col justify-center items-center text-center cursor-pointer select-none transition-all hover:scale-105 ${
-                              isAnniversary
-                                ? ""
-                                : "rounded-full shadow-sm border border-slate-200/60 p-1"
-                            }`}
+                            className={`relative flex flex-col justify-center items-center text-center cursor-pointer select-none transition-all hover:scale-105 ${isAnniversary
+                              ? ""
+                              : "rounded-full shadow-sm border border-slate-200/60 p-1"
+                              }`}
                           >
                             {isAnniversary ? (
                               <div className="absolute inset-0 w-full h-full flex items-center justify-center">
