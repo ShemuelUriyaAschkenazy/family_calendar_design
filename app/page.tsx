@@ -935,7 +935,7 @@ export default function CalendarBuilder() {
                     <img
                       src={activeImagePath}
                       alt="Selected Design Banner"
-                      className="w-full h-44 object-cover block"
+                      className="w-full object-cover block"
                     />
                   </div>
                 )}
