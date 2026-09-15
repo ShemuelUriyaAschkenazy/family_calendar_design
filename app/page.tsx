@@ -79,6 +79,13 @@ const AVAILABLE_DESIGNS = [
     imagePath: "/designs/design_3.jpeg",
     colors: ["#fcf9da", "#dcc9d3", "#d0e3d5", "#fbc8e0"],
     useFourth: true
+  },
+  {
+    id: "design_4",
+    name: "עיצוב 4 (4 צבעים)",
+    imagePath: "/designs/design_4.jpeg",
+    colors: ["#fecfa4", "#f7737c", "#d0e3d5", "#FFFFFF"],
+    useFourth: true
   }
 ];
 
