@@ -149,6 +149,8 @@ export default function CalendarBuilder() {
 
   const [anniversaryColor, setAnniversaryColor] = useState<string>("#e8b6c7");
   const [selectedDesign, setSelectedDesign] = useState<string>("");
+  const [customImage, setCustomImage] = useState<string | null>(null);
+  const [showDesignBannerInPreview, setShowDesignBannerInPreview] = useState<boolean>(true);
 
   const [showModal, setShowModal] = useState(false);
   const [tableDataString, setTableDataString] = useState("");
@@ -171,7 +173,6 @@ export default function CalendarBuilder() {
 
     monthsList.forEach((m) => (sortedCalendar[m] = []));
 
-    // רשימת כל הערכים המותרים בלוח העברי (מא' ועד ל') כולל גרשים ומרכאות כפי שמופיע בגיליון
     const ALLOWED_HEBREW_DAYS = [
       "א'", "ב'", "ג'", "ד'", "ה'", "ו'", "ז'", "ח'", "ט'", "י'",
       "י\"א", "י\"ב", "י\"ג", "י\"ד", "ט\"ו", "ט\"ז", "י\"ז", "י\"ח", "י\"ט", "כ'",
@@ -332,7 +333,10 @@ export default function CalendarBuilder() {
 
   const handleDesignChange = (designId: string) => {
     setSelectedDesign(designId);
-    if (!designId) return;
+    if (designId !== "custom") {
+      setCustomImage(null);
+    }
+    if (!designId || designId === "custom") return;
 
     const design = AVAILABLE_DESIGNS.find((d) => d.id === designId);
     if (!design) return;
@@ -355,6 +359,17 @@ export default function CalendarBuilder() {
       });
     });
     setProcessedCalendar(updatedCalendar);
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCustomImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleFetchData = async () => {
@@ -515,6 +530,9 @@ export default function CalendarBuilder() {
   const activeMonths =
     calendarType === "gregorian" ? GREGORIAN_MONTHS : HEBREW_MONTHS;
 
+  const currentDesign = AVAILABLE_DESIGNS.find((d) => d.id === selectedDesign);
+  const activeImagePath = selectedDesign === "custom" ? customImage : currentDesign?.imagePath;
+
   const handleGeneratePreview = async () => {
     const calendarElement = document.getElementById("calendar-preview-area");
     if (!calendarElement) return alert("לא ניתן היה למצוא את אזור הלוח לצילום");
@@ -664,19 +682,31 @@ export default function CalendarBuilder() {
                   {design.name}
                 </option>
               ))}
+              <option value="custom">-- תמונה מותאמת אישית --</option>
             </select>
           </div>
 
-          {selectedDesign && (
+          {selectedDesign === "custom" && (
+            <div className="mt-4 max-w-md">
+              <label className="block text-xs font-bold text-slate-400 mb-2 tracking-wide">
+                העלה תמונה מותאמת אישית:
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="w-full p-2 border border-slate-200 rounded-xl text-sm bg-slate-50 cursor-pointer"
+              />
+            </div>
+          )}
+
+          {activeImagePath && (
             <div className="mt-4 border border-slate-200/60 rounded-xl overflow-hidden max-w-4xl mx-auto shadow-sm">
               <div className="bg-slate-50 text-[11px] font-bold text-slate-400 p-2 text-center border-b border-slate-100">
                 תצוגה מקדימה של הבאנר העליון המתוכנן
               </div>
               <img
-                src={
-                  AVAILABLE_DESIGNS.find((d) => d.id === selectedDesign)
-                    ?.imagePath
-                }
+                src={activeImagePath}
                 alt="Design Preview"
                 className="w-full h-36 object-cover"
               />
@@ -873,9 +903,20 @@ export default function CalendarBuilder() {
             {/* Flat Single-Row Layout (No Scroll, No Wrap) */}
             <div className="px-4 overflow-hidden">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                <h2 className="text-xl font-bold text-slate-700">
-                  תצוגה מקדימה של הלוח
-                </h2>
+                <div className="flex items-center gap-4">
+                  <h2 className="text-xl font-bold text-slate-700">
+                    תצוגה מקדימה של הלוח
+                  </h2>
+                  {activeImagePath && (
+                    <button
+                      onClick={() => setShowDesignBannerInPreview(!showDesignBannerInPreview)}
+                      className="bg-slate-200 text-slate-700 font-bold text-xs py-2 px-4 rounded-xl hover:bg-slate-300 transition shadow-sm border border-slate-300 flex items-center gap-1.5"
+                    >
+                      <span>🖼️</span>
+                      {showDesignBannerInPreview ? "הסתר תמונת הלוח" : "הצג תמונת הלוח"}
+                    </button>
+                  )}
+                </div>
                 <button
                   onClick={handlePrepareDataForCanva}
                   className="bg-emerald-600 text-white font-bold py-3 px-8 rounded-xl hover:bg-emerald-700 shadow-sm transition text-md w-full sm:w-auto"
@@ -887,82 +928,94 @@ export default function CalendarBuilder() {
               {/* Exact 12-column grid to hold all months tightly in one elegant view block */}
               <div
                 id="calendar-preview-area"
-                className="grid grid-cols-12 gap-1 bg-white p-2 rounded-2xl border border-slate-200 shadow-sm pb-6 w-full"
+                className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
               >
-                {activeMonths.map((month) => (
-                  <div
-                    key={month}
-                    className="bg-[#f8fafc] p-1.5 rounded-xl border border-slate-100 flex flex-col items-center min-h-[360px] shadow-sm overflow-hidden"
-                  >
-                    <div className="font-bold text-[11px] text-slate-600 border-b border-slate-200/60 w-full text-center pb-1.5 mb-2 truncate tracking-tight">
-                      {month}
-                    </div>
+                {activeImagePath && showDesignBannerInPreview && (
+                  <div className="w-full border-b border-slate-200 overflow-hidden">
+                    <img
+                      src={activeImagePath}
+                      alt="Selected Design Banner"
+                      className="w-full h-44 object-cover block"
+                    />
+                  </div>
+                )}
 
-                    <div className="flex flex-col gap-2 w-full items-center">
-                      {processedCalendar[month]?.map((circle) => {
-                        const isAnniversary = circle.type === "anniversary";
+                <div className="grid grid-cols-12 gap-1 p-2 pb-6 w-full">
+                  {activeMonths.map((month) => (
+                    <div
+                      key={month}
+                      className="bg-[#f8fafc] p-1.5 rounded-xl border border-slate-100 flex flex-col items-center min-h-[360px] shadow-sm overflow-hidden"
+                    >
+                      <div className="font-bold text-[11px] text-slate-600 border-b border-slate-200/60 w-full text-center pb-1.5 mb-2 truncate tracking-tight">
+                        {month}
+                      </div>
 
-                        return (
-                          <div
-                            key={circle.id}
-                            onClick={() =>
-                              handleSingleCircleColorChange(month, circle.id)
-                            }
-                            style={{
-                              width: `${circleSize}px`,
-                              height: `${circleSize}px`,
-                              backgroundColor: isAnniversary
-                                ? "transparent"
-                                : circle.color,
-                            }}
-                            className={`relative flex flex-col justify-center items-center text-center cursor-pointer select-none transition-all hover:scale-105 ${isAnniversary
-                              ? ""
-                              : "rounded-full shadow-sm border border-slate-200/60 p-1"
-                              }`}
-                          >
-                            {isAnniversary ? (
-                              <div className="absolute inset-0 w-full h-full flex items-center justify-center">
-                                <svg
-                                  viewBox="1.75 3 20.5 18.35"
-                                  className="absolute inset-0 w-full h-full"
-                                  style={{
-                                    fill: circle.color,
-                                    width: "100%",
-                                    height: "100%",
-                                  }}
-                                >
-                                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                                </svg>
-                                <div className="relative z-10 flex flex-col items-center justify-center p-0.5 select-none text-center max-w-[85%] mt-[-4px] w-full">
+                      <div className="flex flex-col gap-2 w-full items-center">
+                        {processedCalendar[month]?.map((circle) => {
+                          const isAnniversary = circle.type === "anniversary";
+
+                          return (
+                            <div
+                              key={circle.id}
+                              onClick={() =>
+                                handleSingleCircleColorChange(month, circle.id)
+                              }
+                              style={{
+                                width: `${circleSize}px`,
+                                height: `${circleSize}px`,
+                                backgroundColor: isAnniversary
+                                  ? "transparent"
+                                  : circle.color,
+                              }}
+                              className={`relative flex flex-col justify-center items-center text-center cursor-pointer select-none transition-all hover:scale-105 ${isAnniversary
+                                ? ""
+                                : "rounded-full shadow-sm border border-slate-200/60 p-1"
+                                }`}
+                            >
+                              {isAnniversary ? (
+                                <div className="absolute inset-0 w-full h-full flex items-center justify-center">
+                                  <svg
+                                    viewBox="1.75 3 20.5 18.35"
+                                    className="absolute inset-0 w-full h-full"
+                                    style={{
+                                      fill: circle.color,
+                                      width: "100%",
+                                      height: "100%",
+                                    }}
+                                  >
+                                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                                  </svg>
+                                  <div className="relative z-10 flex flex-col items-center justify-center p-0.5 select-none text-center max-w-[85%] mt-[-4px] w-full">
+                                    <span className="text-[10px] font-bold text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis w-full block text-center px-0.5 leading-tight">
+                                      {circle.name}
+                                    </span>
+                                    <span className="text-[11px] font-extrabold text-slate-900 mt-0.5">
+                                      {circle.date}
+                                    </span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
                                   <span className="text-[10px] font-bold text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis w-full block text-center px-0.5 leading-tight">
                                     {circle.name}
                                   </span>
                                   <span className="text-[11px] font-extrabold text-slate-900 mt-0.5">
                                     {circle.date}
                                   </span>
-                                </div>
-                              </div>
-                            ) : (
-                              <>
-                                <span className="text-[10px] font-bold text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis w-full block text-center px-0.5 leading-tight">
-                                  {circle.name}
-                                </span>
-                                <span className="text-[11px] font-extrabold text-slate-900 mt-0.5">
-                                  {circle.date}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        );
-                      })}
-                      {processedCalendar[month]?.length === 0 && (
-                        <span className="text-[9px] text-slate-400 italic mt-6">
-                          אין אירועים
-                        </span>
-                      )}
+                                </>
+                              )}
+                            </div>
+                          );
+                        })}
+                        {processedCalendar[month]?.length === 0 && (
+                          <span className="text-[9px] text-slate-400 italic mt-6">
+                            אין אירועים
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           </>
